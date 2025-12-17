@@ -235,6 +235,22 @@ body {
   margin-top: 6px;
 }
 
+@keyframes scoreBump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.scoreBox__value.bump {
+  animation: scoreBump 160ms ease-out;
+}
+
 .shapeBox__options {
   display: flex;
   flex-wrap: wrap;
