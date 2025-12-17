@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spojovačka</title>
+    <meta name="description" content="Spojovačka – první deploy na GitHub Pages." />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b1020;
+        --card: rgba(255, 255, 255, 0.06);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.7);
+        --accent: #6ee7ff;
+        --accent2: #a78bfa;
+        --border: rgba(255, 255, 255, 0.12);
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --card: rgba(0, 0, 0, 0.04);
+          --text: rgba(0, 0, 0, 0.88);
+          --muted: rgba(0, 0, 0, 0.62);
+          --border: rgba(0, 0, 0, 0.12);
+        }
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          "Apple Color Emoji", "Segoe UI Emoji";
+      }
+
+      body {
+        background: radial-gradient(1200px 700px at 20% 10%, rgba(110, 231, 255, 0.25), transparent 60%),
+          radial-gradient(1000px 600px at 80% 20%, rgba(167, 139, 250, 0.25), transparent 55%),
+          var(--bg);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: min(780px, 100%);
+        border: 1px solid var(--border);
+        background: var(--card);
+        backdrop-filter: blur(10px);
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      }
+
+      h1 {
+        font-size: clamp(28px, 5vw, 44px);
+        margin: 0 0 10px 0;
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        margin: 10px 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 18px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 14px;
+        color: var(--text);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+      }
+
+      button {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button:hover {
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        font-size: 13px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Spojovačka</h1>
+      <p>
+        Pokud vidíš tuhle stránku na GitHub Pages, tak deploy funguje.
+      </p>
+
+      <div class="row">
+        <span class="badge"><span class="dot" aria-hidden="true"></span> GitHub Pages: OK</span>
+        <span class="badge mono" id="build"></span>
+        <button id="btn">Ověřit JS</button>
+      </div>
+
+      <p class="mono" id="msg" aria-live="polite"></p>
+    </main>
+
+    <script>
+      const elBuild = document.getElementById("build");
+      const elMsg = document.getElementById("msg");
+      const btn = document.getElementById("btn");
+
+      const now = new Date();
+      elBuild.textContent = `Build: ${now.toISOString()}`;
+
+      btn.addEventListener("click", () => {
+        elMsg.textContent = `JS běží (${new Date().toLocaleString("cs-CZ")}).`;
+      });
+    </script>
+  </body>
+</html>
+
+
