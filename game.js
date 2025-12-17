@@ -32,13 +32,14 @@
   const GRID = 8;
   const STORAGE_KEY = "spojovacka:v1";
 
+  // High-contrast palette (more distinguishable hues on dark background)
   const COLORS = [
-    { name: "Cyan", base: "#31d4ff", hi: "#c6f6ff", glow: "rgba(49, 212, 255, 0.55)" },
-    { name: "Purple", base: "#a78bfa", hi: "#ede4ff", glow: "rgba(167, 139, 250, 0.55)" },
-    { name: "Green", base: "#44f0b0", hi: "#caffe9", glow: "rgba(68, 240, 176, 0.50)" },
-    { name: "Orange", base: "#ffb14a", hi: "#ffe2b5", glow: "rgba(255, 177, 74, 0.50)" },
-    { name: "Pink", base: "#ff5fa8", hi: "#ffd1e6", glow: "rgba(255, 95, 168, 0.50)" },
-    { name: "Blue", base: "#4f8cff", hi: "#cfe0ff", glow: "rgba(79, 140, 255, 0.50)" },
+    { name: "Cyan", base: "#22d3ee", hi: "#cffafe", glow: "rgba(34, 211, 238, 0.55)" },
+    { name: "Lime", base: "#4ade80", hi: "#d1fae5", glow: "rgba(74, 222, 128, 0.52)" },
+    { name: "Yellow", base: "#fbbf24", hi: "#fef3c7", glow: "rgba(251, 191, 36, 0.52)" },
+    { name: "Orange", base: "#f97316", hi: "#ffedd5", glow: "rgba(249, 115, 22, 0.52)" },
+    { name: "Red", base: "#ef4444", hi: "#fee2e2", glow: "rgba(239, 68, 68, 0.52)" },
+    { name: "Magenta", base: "#d946ef", hi: "#fae8ff", glow: "rgba(217, 70, 239, 0.52)" },
   ];
 
   const PIECE_THEME = /** @type {const} */ ({
@@ -115,8 +116,14 @@
 
   function ensureAudio() {
     if (!persisted.soundEnabled) return null;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    return audioCtx;
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      if (!audioCtx) audioCtx = new Ctor();
+      return audioCtx;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -283,15 +290,15 @@
   }
 
   /**
-   * @param {PointerEvent} ev
+   * @param {{clientX:number, clientY:number}} pos
    * @returns {{x:number,y:number,cx:number,cy:number}|null}
    */
-  function pointerToCell(ev) {
+  function pointToCell(pos) {
     const rect = boardCanvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
 
-    const px = ((ev.clientX - rect.left) / rect.width) * boardCanvas.width;
-    const py = ((ev.clientY - rect.top) / rect.height) * boardCanvas.height;
+    const px = ((pos.clientX - rect.left) / rect.width) * boardCanvas.width;
+    const py = ((pos.clientY - rect.top) / rect.height) * boardCanvas.height;
     const cell = getBoardCellSize();
     const x = Math.floor(px / cell);
     const y = Math.floor(py / cell);
@@ -628,7 +635,7 @@
     return min + maxAdd * clamp(speedN, 0, 0.999999);
   }
 
-  let runnerAngle = Math.random() * Math.PI * 2;
+  let wheelAngle = Math.random() * Math.PI * 2;
   let runnerT = 0;
 
   /**
@@ -643,7 +650,7 @@
     runnerT += dtSeconds;
     const speedN = speedFromScore(score);
     const rps = runnerRps(speedN);
-    runnerAngle = (runnerAngle + dtSeconds * (Math.PI * 2) * rps) % (Math.PI * 2);
+    wheelAngle = (wheelAngle + dtSeconds * (Math.PI * 2) * rps) % (Math.PI * 2);
 
     runnerCtx.clearRect(0, 0, w, h);
 
@@ -651,11 +658,11 @@
     const cy = h * 0.5;
     const trackR = size * 0.34;
 
-    // track glow
+    // wheel glow
     runnerCtx.save();
     runnerCtx.translate(cx, cy);
 
-    const grad = runnerCtx.createRadialGradient(0, 0, trackR * 0.75, 0, 0, trackR * 1.25);
+    const grad = runnerCtx.createRadialGradient(0, 0, trackR * 0.70, 0, 0, trackR * 1.30);
     grad.addColorStop(0, "rgba(255,255,255,0.02)");
     grad.addColorStop(0.55, "rgba(110,231,255,0.08)");
     grad.addColorStop(1, "rgba(167,139,250,0.08)");
@@ -664,28 +671,61 @@
     runnerCtx.arc(0, 0, trackR * 1.18, 0, Math.PI * 2);
     runnerCtx.fill();
 
+    // rotating spokes (so motion is readable)
+    runnerCtx.save();
+    runnerCtx.rotate(wheelAngle);
+    runnerCtx.strokeStyle = "rgba(255,255,255,0.16)";
+    runnerCtx.lineWidth = Math.max(2, Math.round(size * 0.012));
+    runnerCtx.shadowColor = "rgba(110,231,255,0.18)";
+    runnerCtx.shadowBlur = size * 0.06;
+    const spokes = 8;
+    for (let i = 0; i < spokes; i++) {
+      const a = (i * Math.PI * 2) / spokes;
+      const x1 = Math.cos(a) * trackR * 0.45;
+      const y1 = Math.sin(a) * trackR * 0.45;
+      const x2 = Math.cos(a) * trackR * 0.98;
+      const y2 = Math.sin(a) * trackR * 0.98;
+      runnerCtx.beginPath();
+      runnerCtx.moveTo(x1, y1);
+      runnerCtx.lineTo(x2, y2);
+      runnerCtx.stroke();
+    }
+    runnerCtx.restore();
+
+    // rim
     runnerCtx.beginPath();
     runnerCtx.arc(0, 0, trackR, 0, Math.PI * 2);
-    runnerCtx.strokeStyle = "rgba(255,255,255,0.18)";
+    runnerCtx.strokeStyle = "rgba(255,255,255,0.20)";
     runnerCtx.lineWidth = Math.max(2, Math.round(size * 0.016));
     runnerCtx.shadowColor = "rgba(110,231,255,0.22)";
     runnerCtx.shadowBlur = size * 0.10;
     runnerCtx.stroke();
+
+    // inner rim
+    runnerCtx.beginPath();
+    runnerCtx.arc(0, 0, trackR * 0.58, 0, Math.PI * 2);
+    runnerCtx.strokeStyle = "rgba(255,255,255,0.10)";
+    runnerCtx.lineWidth = Math.max(1, Math.round(size * 0.010));
+    runnerCtx.shadowBlur = 0;
+    runnerCtx.stroke();
     runnerCtx.restore();
 
-    // runner (emoji)
+    // runner (emoji) – stays near the bottom like a hamster wheel
     const skin = SKINS.find((s) => s.id === persisted.activeSkin) ?? SKINS[0];
-    const bob = Math.sin(runnerT * 10) * (size * 0.010);
-    const px = cx + Math.cos(runnerAngle) * trackR;
-    const py = cy + Math.sin(runnerAngle) * trackR + bob;
+    const bob = Math.sin(runnerT * 12) * (size * 0.010);
+    const px = cx;
+    const py = cy + trackR * 0.62 + bob;
+    const tilt = Math.sin(runnerT * 12) * 0.08;
 
     runnerCtx.save();
+    runnerCtx.translate(px, py);
+    runnerCtx.rotate(tilt);
     runnerCtx.font = `${Math.round(size * 0.12)}px ui-sans-serif, system-ui, Apple Color Emoji, Segoe UI Emoji`;
     runnerCtx.textAlign = "center";
     runnerCtx.textBaseline = "middle";
     runnerCtx.shadowColor = "rgba(0,0,0,0.45)";
     runnerCtx.shadowBlur = size * 0.04;
-    runnerCtx.fillText(skin.emoji, px, py);
+    runnerCtx.fillText(skin.emoji, 0, 0);
     runnerCtx.restore();
 
     if (elRunnerSubtitle) {
@@ -808,22 +848,20 @@
     renderBoard();
   }
 
-  // Board pointer interactions
-  boardCanvas.addEventListener("pointerdown", (ev) => {
+  // Unified interactions (pointer + fallback for older browsers)
+  /**
+   * @param {{x:number,y:number}} at
+   */
+  function handleDownAt(at) {
     ensureAudio();
-    const cell = pointerToCell(ev);
-    if (!cell) return;
-
-    const p = board[cell.y][cell.x];
+    const p = board[at.y][at.x];
     if (!p) return;
 
     pointerIsDown = true;
-    pointerId = ev.pointerId;
-    boardCanvas.setPointerCapture(pointerId);
 
     if (p.kind === PIECE_KIND.ROCKET || p.kind === PIECE_KIND.BOMB) {
       mode = "special";
-      specialOrigin = { x: cell.x, y: cell.y };
+      specialOrigin = { x: at.x, y: at.y };
       specialTarget = null;
       setHint(p.kind === PIECE_KIND.ROCKET ? "Raketa: klikni nebo potáhni o 1 vedle." : "Bomba: klikni.");
       renderBoard();
@@ -831,24 +869,23 @@
     }
 
     mode = "select";
-    selection = [{ x: cell.x, y: cell.y }];
-    selectionSet = new Set([cellKey(cell.x, cell.y)]);
+    selection = [{ x: at.x, y: at.y }];
+    selectionSet = new Set([cellKey(at.x, at.y)]);
     selectionColor = p.color;
     setHint("Táhni dál…");
     renderBoard();
-  });
+  }
 
-  boardCanvas.addEventListener("pointermove", (ev) => {
+  /**
+   * @param {{x:number,y:number}} at
+   */
+  function handleMoveAt(at) {
     if (!pointerIsDown) return;
-    if (pointerId != null && ev.pointerId !== pointerId) return;
-
-    const cell = pointerToCell(ev);
-    if (!cell) return;
 
     if (mode === "special" && specialOrigin) {
       const p = board[specialOrigin.y]?.[specialOrigin.x];
       if (p && p.kind === PIECE_KIND.ROCKET) {
-        const cand = { x: cell.x, y: cell.y };
+        const cand = { x: at.x, y: at.y };
         if (manhattan(cand, specialOrigin) === 1) specialTarget = cand;
         else specialTarget = null;
         renderBoard();
@@ -860,7 +897,7 @@
     if (selection.length === 0 || selectionColor == null) return;
 
     const last = selection[selection.length - 1];
-    const cand = { x: cell.x, y: cell.y };
+    const cand = { x: at.x, y: at.y };
     if (cand.x === last.x && cand.y === last.y) return;
     if (manhattan(cand, last) !== 1) return;
 
@@ -885,7 +922,7 @@
     selection.push(cand);
     selectionSet.add(k);
     renderBoard();
-  });
+  }
 
   function finishPointer() {
     if (!pointerIsDown) return;
@@ -909,10 +946,109 @@
     renderBoard();
   }
 
-  boardCanvas.addEventListener("pointerup", finishPointer);
-  boardCanvas.addEventListener("pointercancel", finishPointer);
-  boardCanvas.addEventListener("pointerleave", () => {
-    // Keep selection while leaving canvas if pointer is captured.
+  function supportsPointerEvents() {
+    return "PointerEvent" in window;
+  }
+
+  if (supportsPointerEvents()) {
+    // Pointer events path
+    boardCanvas.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      const cell = pointToCell(ev);
+      if (!cell) return;
+
+      // Only start a drag if there is a piece at the tapped cell.
+      if (!board[cell.y]?.[cell.x]) return;
+
+      pointerId = ev.pointerId;
+      try {
+        boardCanvas.setPointerCapture(pointerId);
+      } catch {
+        // ignore
+      }
+      handleDownAt({ x: cell.x, y: cell.y });
+    });
+
+    boardCanvas.addEventListener("pointermove", (ev) => {
+      if (!pointerIsDown) return;
+      if (pointerId != null && ev.pointerId !== pointerId) return;
+      ev.preventDefault();
+      const cell = pointToCell(ev);
+      if (!cell) return;
+      handleMoveAt({ x: cell.x, y: cell.y });
+    });
+
+    const end = (ev) => {
+      if (pointerId != null && ev.pointerId !== pointerId) return;
+      ev.preventDefault();
+      finishPointer();
+    };
+    boardCanvas.addEventListener("pointerup", end);
+    boardCanvas.addEventListener("pointercancel", end);
+  } else {
+    // Mouse + touch fallback
+    let activeTouchId = null;
+
+    boardCanvas.addEventListener("mousedown", (ev) => {
+      ev.preventDefault();
+      pointerId = null;
+      const cell = pointToCell(ev);
+      if (!cell) return;
+      handleDownAt({ x: cell.x, y: cell.y });
+    });
+
+    window.addEventListener("mousemove", (ev) => {
+      if (!pointerIsDown) return;
+      const cell = pointToCell(ev);
+      if (!cell) return;
+      handleMoveAt({ x: cell.x, y: cell.y });
+    });
+
+    window.addEventListener("mouseup", () => {
+      finishPointer();
+    });
+
+    boardCanvas.addEventListener(
+      "touchstart",
+      (ev) => {
+        ev.preventDefault();
+        if (ev.changedTouches.length === 0) return;
+        const t = ev.changedTouches[0];
+        activeTouchId = t.identifier;
+        const cell = pointToCell({ clientX: t.clientX, clientY: t.clientY });
+        if (!cell) return;
+        handleDownAt({ x: cell.x, y: cell.y });
+      },
+      { passive: false }
+    );
+
+    boardCanvas.addEventListener(
+      "touchmove",
+      (ev) => {
+        if (!pointerIsDown) return;
+        ev.preventDefault();
+        const t = Array.from(ev.touches).find((x) => x.identifier === activeTouchId);
+        if (!t) return;
+        const cell = pointToCell({ clientX: t.clientX, clientY: t.clientY });
+        if (!cell) return;
+        handleMoveAt({ x: cell.x, y: cell.y });
+      },
+      { passive: false }
+    );
+
+    const touchEnd = (ev) => {
+      ev.preventDefault();
+      const t = Array.from(ev.changedTouches).find((x) => x.identifier === activeTouchId);
+      if (!t) return;
+      activeTouchId = null;
+      finishPointer();
+    };
+    boardCanvas.addEventListener("touchend", touchEnd, { passive: false });
+    boardCanvas.addEventListener("touchcancel", touchEnd, { passive: false });
+  }
+
+  boardCanvas.addEventListener("contextmenu", (ev) => {
+    ev.preventDefault();
   });
 
   btnNew.addEventListener("click", () => {

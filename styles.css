@@ -36,7 +36,9 @@ body {
     radial-gradient(1100px 800px at 50% 95%, rgba(124, 247, 195, 0.12), transparent 65%),
     linear-gradient(180deg, var(--bg), var(--bg2));
   color: var(--text);
-  padding: 22px;
+  height: 100vh;
+  overflow: hidden;
+  padding: 16px;
 }
 
 .app {
@@ -44,6 +46,8 @@ body {
   margin: 0 auto;
   display: grid;
   gap: 16px;
+  height: 100%;
+  grid-template-rows: auto 1fr;
 }
 
 .topbar {
@@ -51,7 +55,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  padding: 16px 18px;
+  padding: 12px 14px;
   border-radius: 18px;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.04));
@@ -65,7 +69,7 @@ body {
 }
 
 .brand__title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -136,7 +140,8 @@ body {
 .layout {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .panel {
@@ -151,6 +156,10 @@ body {
   flex: 1 1 auto;
   min-width: 300px;
   padding: 16px;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 14px;
 }
 
 .panel--side {
@@ -159,11 +168,12 @@ body {
   padding: 16px;
   display: grid;
   gap: 14px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .boardWrap {
-  width: 100%;
-  max-width: 680px;
+  width: min(56vh, 640px, 100%);
   aspect-ratio: 1 / 1;
   margin: 0 auto;
   border-radius: 18px;
@@ -189,7 +199,7 @@ body {
 .boardHud {
   display: grid;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .hudRow {
@@ -217,7 +227,7 @@ body {
 }
 
 .scoreBox__value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 900;
   letter-spacing: -0.02em;
   margin-top: 6px;
@@ -281,6 +291,8 @@ body {
   height: auto;
   aspect-ratio: 1 / 1;
   display: block;
+  max-width: min(28vh, 240px);
+  margin: 0 auto;
 }
 
 .runnerCard__subtitle {
@@ -372,7 +384,9 @@ body {
 
 @media (max-width: 980px) {
   body {
-    padding: 14px;
+    padding: 12px;
+    overflow: auto;
+    height: auto;
   }
 
   .layout {
