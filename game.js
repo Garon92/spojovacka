@@ -689,15 +689,7 @@
     runnerCtx.restore();
 
     if (elRunnerSubtitle) {
-      const label =
-        speedN < 0.18
-          ? "pomalé tempo"
-          : speedN < 0.42
-            ? "střední tempo"
-            : speedN < 0.72
-              ? "rychlé tempo"
-              : "šílené tempo";
-      elRunnerSubtitle.textContent = `rychlost roste se skóre · ${label}`;
+      elRunnerSubtitle.textContent = "rychlost roste se skóre";
     }
   }
 
