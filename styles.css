@@ -167,9 +167,11 @@ body {
   flex: 0 0 auto;
   padding: 16px;
   display: grid;
+  grid-template-rows: auto 1fr auto;
   gap: 14px;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .boardWrap {
@@ -276,6 +278,12 @@ body {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.skinsCard {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+}
+
 .runnerCard__title,
 .skinsCard__title {
   font-size: 12px;
@@ -305,6 +313,9 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px; /* makes room for scrollbar without shifting */
 }
 
 .skin {

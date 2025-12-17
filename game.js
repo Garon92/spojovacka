@@ -217,7 +217,38 @@
     for (let y = 0; y < GRID; y++) {
       const row = [];
       for (let x = 0; x < GRID; x++) {
-        row.push(makePiece(randInt(COLORS.length), PIECE_KIND.NORMAL));
+        const forbid = new Set();
+        // Avoid creating immediate 3-in-a-row at init time
+        if (x >= 2) {
+          const p1 = row[x - 1];
+          const p2 = row[x - 2];
+          if (p1 && p2 && p1.color === p2.color) forbid.add(p1.color);
+        }
+        if (y >= 2) {
+          const p1 = b[y - 1]?.[x];
+          const p2 = b[y - 2]?.[x];
+          if (p1 && p2 && p1.color === p2.color) forbid.add(p1.color);
+        }
+
+        let color = randInt(COLORS.length);
+        if (forbid.size > 0) {
+          let tries = 0;
+          while (forbid.has(color) && tries < 12) {
+            color = randInt(COLORS.length);
+            tries++;
+          }
+          if (forbid.has(color)) {
+            // deterministic fallback
+            for (let c = 0; c < COLORS.length; c++) {
+              if (!forbid.has(c)) {
+                color = c;
+                break;
+              }
+            }
+          }
+        }
+
+        row.push(makePiece(color, PIECE_KIND.NORMAL));
       }
       b.push(row);
     }
@@ -228,16 +259,15 @@
   let board = makeBoard();
   let score = 0;
 
-  /** selection state */
+  /** input state */
   let pointerIsDown = false;
   let pointerId = null;
-  /** @type {"idle"|"select"|"special"} */
+  /** @type {"idle"|"swap"|"special"} */
   let mode = "idle";
-  /** @type {{x:number,y:number}[]} */
-  let selection = [];
-  /** @type {Set<string>} */
-  let selectionSet = new Set();
-  let selectionColor = null;
+  /** @type {{x:number,y:number}|null} */
+  let dragOrigin = null;
+  /** @type {{x:number,y:number}|null} */
+  let dragTarget = null;
   /** @type {{x:number,y:number}|null} */
   let specialOrigin = null;
   /** @type {{x:number,y:number}|null} */
@@ -307,9 +337,8 @@
   }
 
   function clearSelection() {
-    selection = [];
-    selectionSet.clear();
-    selectionColor = null;
+    dragOrigin = null;
+    dragTarget = null;
     specialOrigin = null;
     specialTarget = null;
     mode = "idle";
@@ -361,33 +390,248 @@
     return destroyed;
   }
 
-  function applyMatch() {
-    const len = selection.length;
-    if (len < 3) return;
+  /**
+   * @param {{x:number,y:number}} a
+   * @param {{x:number,y:number}} b
+   */
+  function swapCells(a, b) {
+    const tmp = board[a.y][a.x];
+    board[a.y][a.x] = board[b.y][b.x];
+    board[b.y][b.x] = tmp;
+  }
 
-    const last = selection[selection.length - 1];
-    const color = selectionColor ?? 0;
-    const powerup = len >= 5 ? PIECE_KIND.BOMB : len === 4 ? PIECE_KIND.ROCKET : null;
+  /**
+   * @typedef {{cells:{x:number,y:number}[], color:number, dir:"h"|"v"}} MatchSegment
+   * @returns {MatchSegment[]}
+   */
+  function findMatchSegments() {
+    /** @type {MatchSegment[]} */
+    const segments = [];
 
-    const destroyed = destroyCells(selection);
-    addScore(destroyed);
-    collapseAndFill();
-
-    if (powerup && isInBounds(last.x, last.y)) {
-      board[last.y][last.x] = makePiece(color, powerup);
-      if (powerup === PIECE_KIND.ROCKET) playSfx("match", clamp(len / 6, 0.6, 1));
-      if (powerup === PIECE_KIND.BOMB) playSfx("match", 1);
-    } else {
-      playSfx("match", clamp(len / 6, 0.6, 1));
+    // Horizontal
+    for (let y = 0; y < GRID; y++) {
+      /** @type {number|null} */
+      let runColor = null;
+      let runStart = 0;
+      for (let x = 0; x <= GRID; x++) {
+        const p = x < GRID ? board[y][x] : null;
+        const c = p ? p.color : null;
+        if (c !== runColor) {
+          if (runColor != null) {
+            const len = x - runStart;
+            if (len >= 3) {
+              /** @type {{x:number,y:number}[]} */
+              const cells = [];
+              for (let xx = runStart; xx < x; xx++) cells.push({ x: xx, y });
+              segments.push({ cells, color: runColor, dir: "h" });
+            }
+          }
+          runColor = c;
+          runStart = x;
+        }
+      }
     }
 
-    setHint(
-      powerup
-        ? powerup === PIECE_KIND.ROCKET
-          ? "Raketa vytvořena! Klikni na 🚀 (nebo ji potáhni o 1 vedle)."
-          : "Bomba vytvořena! Klikni na 💣."
-        : "Nice! Spojuj dál 🙂"
-    );
+    // Vertical
+    for (let x = 0; x < GRID; x++) {
+      /** @type {number|null} */
+      let runColor = null;
+      let runStart = 0;
+      for (let y = 0; y <= GRID; y++) {
+        const p = y < GRID ? board[y][x] : null;
+        const c = p ? p.color : null;
+        if (c !== runColor) {
+          if (runColor != null) {
+            const len = y - runStart;
+            if (len >= 3) {
+              /** @type {{x:number,y:number}[]} */
+              const cells = [];
+              for (let yy = runStart; yy < y; yy++) cells.push({ x, y: yy });
+              segments.push({ cells, color: runColor, dir: "v" });
+            }
+          }
+          runColor = c;
+          runStart = y;
+        }
+      }
+    }
+
+    return segments;
+  }
+
+  /**
+   * @param {MatchSegment[]} segments
+   * @param {{x:number,y:number}[]|null} preferredSwapCells
+   * @returns {Map<string, {x:number,y:number,kind:"rocket"|"bomb",color:number}>}
+   */
+  function computeSpecialCreations(segments, preferredSwapCells) {
+    /** @type {Map<string, {x:number,y:number,kind:"rocket"|"bomb",color:number}>} */
+    const out = new Map();
+
+    const prefer = preferredSwapCells ? [preferredSwapCells[1], preferredSwapCells[0]] : [];
+
+    for (const seg of segments) {
+      const len = seg.cells.length;
+      if (len < 4) continue;
+
+      const kind = len >= 5 ? PIECE_KIND.BOMB : PIECE_KIND.ROCKET;
+
+      /** @type {{x:number,y:number}|null} */
+      let target = null;
+
+      // Prefer swapped cell(s) if they are inside the segment (and ideally not already a special)
+      for (const pc of prefer) {
+        if (!pc) continue;
+        if (!seg.cells.some((c) => c.x === pc.x && c.y === pc.y)) continue;
+        const p = board[pc.y]?.[pc.x];
+        if (p && p.kind === PIECE_KIND.NORMAL) {
+          target = pc;
+          break;
+        }
+      }
+      if (!target) {
+        for (const pc of prefer) {
+          if (!pc) continue;
+          if (seg.cells.some((c) => c.x === pc.x && c.y === pc.y)) {
+            target = pc;
+            break;
+          }
+        }
+      }
+
+      // Otherwise pick a normal piece near the middle
+      if (!target) {
+        const mid = Math.floor(len / 2);
+        target = seg.cells[mid] ?? seg.cells[0];
+        for (let i = 0; i < len; i++) {
+          const idx = (mid + i) % len;
+          const c = seg.cells[idx];
+          const p = board[c.y]?.[c.x];
+          if (p && p.kind === PIECE_KIND.NORMAL) {
+            target = c;
+            break;
+          }
+        }
+      }
+
+      if (!target) continue;
+
+      const k = cellKey(target.x, target.y);
+      const existing = out.get(k);
+      if (!existing) {
+        out.set(k, { x: target.x, y: target.y, kind, color: seg.color });
+      } else if (existing.kind === PIECE_KIND.ROCKET && kind === PIECE_KIND.BOMB) {
+        out.set(k, { x: target.x, y: target.y, kind, color: seg.color });
+      }
+    }
+
+    return out;
+  }
+
+  /**
+   * Chain-reaction: if a special piece is cleared, it also explodes.
+   * @param {Set<string>} clearKeys
+   * @param {Set<string>} protectedKeys
+   */
+  function expandWithSpecialExplosions(clearKeys, protectedKeys) {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const k of Array.from(clearKeys)) {
+        if (protectedKeys.has(k)) continue;
+        const [xs, ys] = k.split(",");
+        const x = Number(xs);
+        const y = Number(ys);
+        if (!isInBounds(x, y)) continue;
+        const p = board[y]?.[x];
+        if (!p) continue;
+        if (p.kind !== PIECE_KIND.ROCKET && p.kind !== PIECE_KIND.BOMB) continue;
+
+        const area = p.kind === PIECE_KIND.ROCKET ? rocketArea({ x, y }) : bombArea({ x, y });
+        for (const c of area) {
+          if (!isInBounds(c.x, c.y)) continue;
+          const kk = cellKey(c.x, c.y);
+          if (protectedKeys.has(kk)) continue;
+          if (!clearKeys.has(kk)) {
+            clearKeys.add(kk);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Resolve all matches on the board (cascades) and create specials for 4/5+.
+   * @param {{x:number,y:number}[]|null} preferredSwapCells
+   * @returns {boolean} whether anything was cleared
+   */
+  function resolveMatches(preferredSwapCells = null) {
+    let clearedAny = false;
+
+    while (true) {
+      const segments = findMatchSegments();
+      if (segments.length === 0) break;
+
+      const creations = computeSpecialCreations(segments, preferredSwapCells);
+      const protectedKeys = new Set(creations.keys());
+
+      /** @type {Set<string>} */
+      const clearKeys = new Set();
+      for (const seg of segments) {
+        for (const c of seg.cells) {
+          const k = cellKey(c.x, c.y);
+          if (!protectedKeys.has(k)) clearKeys.add(k);
+        }
+      }
+
+      expandWithSpecialExplosions(clearKeys, protectedKeys);
+
+      const clearCells = Array.from(clearKeys).map((k) => {
+        const [xs, ys] = k.split(",");
+        return { x: Number(xs), y: Number(ys) };
+      });
+
+      const destroyed = destroyCells(clearCells);
+      if (destroyed > 0) {
+        clearedAny = true;
+        addScore(destroyed);
+        playSfx("match", clamp(destroyed / 12, 0.55, 1));
+      }
+
+      for (const cr of creations.values()) {
+        if (!isInBounds(cr.x, cr.y)) continue;
+        board[cr.y][cr.x] = makePiece(cr.color, cr.kind);
+      }
+
+      collapseAndFill();
+      preferredSwapCells = null; // only prefer on the first resolve pass
+    }
+
+    return clearedAny;
+  }
+
+  /**
+   * Swap two adjacent cells. If no match is created, revert the swap.
+   * @param {{x:number,y:number}} origin
+   * @param {{x:number,y:number}} target
+   */
+  function attemptSwap(origin, target) {
+    if (!isInBounds(origin.x, origin.y) || !isInBounds(target.x, target.y)) return;
+    if (manhattan(origin, target) !== 1) return;
+
+    swapCells(origin, target);
+
+    const segments = findMatchSegments();
+    if (segments.length === 0) {
+      swapCells(origin, target);
+      playSfx("bad", 0.75);
+      setHint("Nic nespojilo — tah se vrací.");
+      return;
+    }
+
+    setHint("Good! 🙂");
+    resolveMatches([origin, target]);
   }
 
   /** @param {{x:number,y:number}} center */
@@ -433,11 +677,14 @@
     area.push({ x: specialOrigin.x, y: specialOrigin.y });
 
     const destroyed = destroyCells(area);
-    addScore(destroyed);
+    if (destroyed > 0) addScore(destroyed);
     collapseAndFill();
 
     playSfx(p.kind === PIECE_KIND.ROCKET ? "rocket" : "bomb", clamp(destroyed / 14, 0.65, 1));
     setHint(p.kind === PIECE_KIND.ROCKET ? "BOOM! 🚀 (+)" : "KABOOM! 💣");
+
+    // After the explosion, resolve any cascades that appear.
+    resolveMatches(null);
   }
 
   function renderBoard() {
@@ -477,39 +724,31 @@
       }
     }
 
-    // selection line + highlight
-    if (mode === "select" && selection.length > 0) {
-      const c = selectionColor == null ? COLORS[0] : COLORS[selectionColor];
+    // drag highlight (swap)
+    if (mode === "swap" && dragOrigin) {
+      const originPiece = board[dragOrigin.y]?.[dragOrigin.x];
+      const c = originPiece ? COLORS[originPiece.color] : COLORS[0];
+
+      /** @param {{x:number,y:number}} pos */
+      const strokeCell = (pos) => {
+        const pad = cell * 0.10;
+        boardCtx.strokeRect(pos.x * cell + pad, pos.y * cell + pad, cell - pad * 2, cell - pad * 2);
+      };
 
       boardCtx.save();
-      boardCtx.lineWidth = cell * 0.12;
       boardCtx.lineCap = "round";
       boardCtx.lineJoin = "round";
-      boardCtx.strokeStyle = c.glow;
+      boardCtx.lineWidth = Math.max(2, Math.round(cell * 0.06));
+      boardCtx.strokeStyle = "rgba(255,255,255,0.62)";
       boardCtx.shadowColor = c.glow;
       boardCtx.shadowBlur = cell * 0.25;
 
-      boardCtx.beginPath();
-      for (let i = 0; i < selection.length; i++) {
-        const s = selection[i];
-        const sx = (s.x + 0.5) * cell;
-        const sy = (s.y + 0.5) * cell;
-        if (i === 0) boardCtx.moveTo(sx, sy);
-        else boardCtx.lineTo(sx, sy);
-      }
-      boardCtx.stroke();
-      boardCtx.restore();
-
-      boardCtx.save();
-      boardCtx.lineWidth = Math.max(1, Math.round(cell * 0.04));
-      boardCtx.strokeStyle = "rgba(255,255,255,0.55)";
-      boardCtx.shadowColor = c.glow;
-      boardCtx.shadowBlur = cell * 0.18;
-      for (const s of selection) {
-        const sx = (s.x + 0.5) * cell;
-        const sy = (s.y + 0.5) * cell;
+      strokeCell(dragOrigin);
+      if (dragTarget) {
+        strokeCell(dragTarget);
         boardCtx.beginPath();
-        boardCtx.arc(sx, sy, cell * 0.36, 0, Math.PI * 2);
+        boardCtx.moveTo((dragOrigin.x + 0.5) * cell, (dragOrigin.y + 0.5) * cell);
+        boardCtx.lineTo((dragTarget.x + 0.5) * cell, (dragTarget.y + 0.5) * cell);
         boardCtx.stroke();
       }
       boardCtx.restore();
@@ -639,6 +878,224 @@
   let runnerT = 0;
 
   /**
+   * Simple side-view "runner" sprites drawn in canvas (no emojis).
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} skinId
+   * @param {number} x
+   * @param {number} y
+   * @param {number} sizePx roughly the height of the animal
+   * @param {number} phase animation phase (radians)
+   */
+  function drawRunnerAnimal(ctx, skinId, x, y, sizePx, phase) {
+    const cfg =
+      skinId === "rat"
+        ? {
+            body: "#8b93a6",
+            belly: "#c7ceda",
+            outline: "rgba(255,255,255,0.16)",
+            tail: "#b7bfcc",
+            ear: "#d6b3c2",
+            snout: 1.05,
+            tailLen: 1.25,
+          }
+        : skinId === "dog"
+          ? {
+              body: "#b48a62",
+              belly: "#e7d3b7",
+              outline: "rgba(255,255,255,0.14)",
+              tail: "#caa27b",
+              ear: "#8e6846",
+              snout: 1.18,
+              tailLen: 0.70,
+            }
+          : skinId === "dino"
+            ? {
+                body: "#35d07f",
+                belly: "#bdf7db",
+                outline: "rgba(255,255,255,0.14)",
+                tail: "#2bb56c",
+                ear: "#2bb56c",
+                snout: 1.10,
+                tailLen: 1.15,
+              }
+            : {
+                body: "#aab3c2",
+                belly: "#dbe2ee",
+                outline: "rgba(255,255,255,0.16)",
+                tail: "#c8cfdb",
+                ear: "#e1a7b7",
+                snout: 1.00,
+                tailLen: 1.05,
+              };
+
+    const u = sizePx / 10; // unit size
+    const run = Math.sin(phase);
+    const run2 = Math.sin(phase + Math.PI);
+    const bob = Math.sin(phase * 0.5) * (u * 0.25);
+
+    ctx.save();
+    ctx.translate(x, y + bob);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // subtle shadow on the "tread"
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.beginPath();
+    ctx.ellipse(0, u * 2.2, u * 4.0, u * 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Tail (behind body)
+    ctx.save();
+    ctx.strokeStyle = cfg.tail;
+    ctx.lineWidth = u * 0.55;
+    ctx.shadowColor = "rgba(0,0,0,0.25)";
+    ctx.shadowBlur = u * 0.4;
+    const tailSwing = (skinId === "dog" ? 0.35 : 0.55) * run;
+    ctx.beginPath();
+    ctx.moveTo(-u * 3.2, u * 0.2);
+    ctx.quadraticCurveTo(
+      -u * 5.2,
+      -u * 0.4 + tailSwing * u,
+      -u * (6.6 * cfg.tailLen),
+      u * 0.6 + tailSwing * u
+    );
+    ctx.stroke();
+    ctx.restore();
+
+    // Legs (behind body)
+    ctx.save();
+    ctx.strokeStyle = "rgba(10,12,18,0.55)";
+    ctx.lineWidth = u * 0.65;
+    const legLift = u * 0.55;
+    const legFwd = u * 0.85;
+
+    // back leg
+    ctx.beginPath();
+    ctx.moveTo(-u * 1.7, u * 1.5);
+    ctx.lineTo(-u * 1.7 + run2 * legFwd, u * (2.7 - Math.max(0, run2) * legLift));
+    ctx.stroke();
+
+    // front leg
+    ctx.beginPath();
+    ctx.moveTo(u * 1.4, u * 1.5);
+    ctx.lineTo(u * 1.4 + run * legFwd, u * (2.7 - Math.max(0, run) * legLift));
+    ctx.stroke();
+    ctx.restore();
+
+    // Body
+    ctx.save();
+    ctx.fillStyle = cfg.body;
+    ctx.strokeStyle = cfg.outline;
+    ctx.lineWidth = u * 0.25;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, u * 3.3, u * 2.0, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Belly highlight
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = cfg.belly;
+    ctx.beginPath();
+    ctx.ellipse(u * 0.6, u * 0.6, u * 2.0, u * 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Head + snout
+    ctx.save();
+    ctx.translate(u * 3.1, -u * 0.6);
+    ctx.fillStyle = cfg.body;
+    ctx.strokeStyle = cfg.outline;
+    ctx.lineWidth = u * 0.22;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, u * 1.7, u * 1.3, 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Snout / nose bump
+    ctx.beginPath();
+    ctx.ellipse(u * 1.2 * cfg.snout, u * 0.25, u * 0.75, u * 0.55, 0, 0, Math.PI * 2);
+    ctx.fillStyle = cfg.body;
+    ctx.fill();
+    ctx.stroke();
+
+    // Eye
+    ctx.fillStyle = "rgba(10,12,18,0.75)";
+    ctx.beginPath();
+    ctx.arc(u * 0.35, -u * 0.25, u * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ear
+    ctx.fillStyle = cfg.ear;
+    if (skinId === "dog") {
+      // floppy ear
+      ctx.beginPath();
+      ctx.ellipse(-u * 0.55, -u * 0.75, u * 0.55, u * 0.85, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.ellipse(-u * 0.45, -u * 0.95, u * 0.55, u * 0.65, 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Whiskers for mouse/rat
+    if (skinId === "mouse" || skinId === "rat") {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = u * 0.10;
+      ctx.beginPath();
+      ctx.moveTo(u * 1.35, u * 0.15);
+      ctx.lineTo(u * 2.55, -u * 0.05);
+      ctx.moveTo(u * 1.35, u * 0.35);
+      ctx.lineTo(u * 2.55, u * 0.35);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    // Legs (front layer)
+    ctx.save();
+    ctx.strokeStyle = "rgba(20,22,30,0.55)";
+    ctx.lineWidth = u * 0.65;
+    const legLift2 = u * 0.55;
+    const legFwd2 = u * 0.85;
+
+    // back leg (front layer)
+    ctx.beginPath();
+    ctx.moveTo(-u * 1.2, u * 1.5);
+    ctx.lineTo(-u * 1.2 + run * legFwd2, u * (2.7 - Math.max(0, run) * legLift2));
+    ctx.stroke();
+
+    // front leg (front layer)
+    ctx.beginPath();
+    ctx.moveTo(u * 1.9, u * 1.5);
+    ctx.lineTo(u * 1.9 + run2 * legFwd2, u * (2.7 - Math.max(0, run2) * legLift2));
+    ctx.stroke();
+    ctx.restore();
+
+    // Dino spikes (quick silhouette cue)
+    if (skinId === "dino") {
+      ctx.save();
+      ctx.translate(-u * 0.8, -u * 2.0);
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = u * 0.25;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(u * 0.6, -u * 0.5);
+      ctx.lineTo(u * 1.2, 0);
+      ctx.lineTo(u * 1.8, -u * 0.5);
+      ctx.lineTo(u * 2.4, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  /**
    * @param {number} dtSeconds
    */
   function renderRunner(dtSeconds) {
@@ -710,22 +1167,19 @@
     runnerCtx.stroke();
     runnerCtx.restore();
 
-    // runner (emoji) – stays near the bottom like a hamster wheel
+    // runner (profile sprite) – stays near the bottom like a hamster wheel
     const skin = SKINS.find((s) => s.id === persisted.activeSkin) ?? SKINS[0];
-    const bob = Math.sin(runnerT * 12) * (size * 0.010);
     const px = cx;
-    const py = cy + trackR * 0.62 + bob;
-    const tilt = Math.sin(runnerT * 12) * 0.08;
+    const py = cy + trackR * 0.60;
+    const runPhase = runnerT * (10 + speedN * 12);
+    const tilt = Math.sin(runPhase) * 0.05;
 
     runnerCtx.save();
     runnerCtx.translate(px, py);
     runnerCtx.rotate(tilt);
-    runnerCtx.font = `${Math.round(size * 0.12)}px ui-sans-serif, system-ui, Apple Color Emoji, Segoe UI Emoji`;
-    runnerCtx.textAlign = "center";
-    runnerCtx.textBaseline = "middle";
-    runnerCtx.shadowColor = "rgba(0,0,0,0.45)";
-    runnerCtx.shadowBlur = size * 0.04;
-    runnerCtx.fillText(skin.emoji, 0, 0);
+    runnerCtx.shadowColor = "rgba(0,0,0,0.35)";
+    runnerCtx.shadowBlur = size * 0.02;
+    drawRunnerAnimal(runnerCtx, skin.id, 0, 0, size * 0.17, runPhase);
     runnerCtx.restore();
 
     if (elRunnerSubtitle) {
@@ -844,7 +1298,7 @@
     board = makeBoard();
     setScore(0);
     clearSelection();
-    setHint("Nová hra. Táhni přes stejné barvy (min 3).");
+    setHint("Nová hra. Přetáhni dílek na sousední a prohoď je (min 3 v řadě).");
     renderBoard();
   }
 
@@ -859,20 +1313,21 @@
 
     pointerIsDown = true;
 
-    if (p.kind === PIECE_KIND.ROCKET || p.kind === PIECE_KIND.BOMB) {
+    dragOrigin = { x: at.x, y: at.y };
+    dragTarget = null;
+
+    if (p.kind === PIECE_KIND.ROCKET) {
       mode = "special";
       specialOrigin = { x: at.x, y: at.y };
       specialTarget = null;
-      setHint(p.kind === PIECE_KIND.ROCKET ? "Raketa: klikni nebo potáhni o 1 vedle." : "Bomba: klikni.");
+      setHint("🚀 Raketa: klikni nebo potáhni o 1 vedle.");
       renderBoard();
       return;
     }
 
-    mode = "select";
-    selection = [{ x: at.x, y: at.y }];
-    selectionSet = new Set([cellKey(at.x, at.y)]);
-    selectionColor = p.color;
-    setHint("Táhni dál…");
+    // Bomb: click detonates, drag swaps like a normal piece (match-3 feel)
+    mode = "swap";
+    setHint("Přetáhni na sousední a pusť (prohodí se).");
     renderBoard();
   }
 
@@ -893,35 +1348,29 @@
       return;
     }
 
-    if (mode !== "select") return;
-    if (selection.length === 0 || selectionColor == null) return;
+    if (mode !== "swap" || !dragOrigin) return;
 
-    const last = selection[selection.length - 1];
     const cand = { x: at.x, y: at.y };
-    if (cand.x === last.x && cand.y === last.y) return;
-    if (manhattan(cand, last) !== 1) return;
-
-    // backtrack
-    if (selection.length >= 2) {
-      const prev = selection[selection.length - 2];
-      if (cand.x === prev.x && cand.y === prev.y) {
-        const removed = selection.pop();
-        if (removed) selectionSet.delete(cellKey(removed.x, removed.y));
+    if (cand.x === dragOrigin.x && cand.y === dragOrigin.y) {
+      if (dragTarget) {
+        dragTarget = null;
         renderBoard();
-        return;
       }
+      return;
     }
 
-    const k = cellKey(cand.x, cand.y);
-    if (selectionSet.has(k)) return;
+    if (manhattan(cand, dragOrigin) === 1) {
+      if (!dragTarget || dragTarget.x !== cand.x || dragTarget.y !== cand.y) {
+        dragTarget = cand;
+        renderBoard();
+      }
+      return;
+    }
 
-    const p = board[cand.y][cand.x];
-    if (!p) return;
-    if (p.color !== selectionColor) return;
-
-    selection.push(cand);
-    selectionSet.add(k);
-    renderBoard();
+    if (dragTarget) {
+      dragTarget = null;
+      renderBoard();
+    }
   }
 
   function finishPointer() {
@@ -929,17 +1378,31 @@
     pointerIsDown = false;
     pointerId = null;
 
-    if (mode === "select") {
-      if (selection.length >= 3) {
-        applyMatch();
-      } else {
-        if (selection.length > 0) playSfx("bad", 0.7);
-        setHint("Minimálně 3 v řadě 🙂");
-      }
-    }
-
     if (mode === "special") {
       detonateSpecial();
+      clearSelection();
+      renderBoard();
+      return;
+    }
+
+    if (mode === "swap" && dragOrigin) {
+      const origin = dragOrigin;
+      const target = dragTarget;
+      const originPiece = board[origin.y]?.[origin.x];
+
+      // Click on bomb detonates it.
+      if (!target && originPiece && originPiece.kind === PIECE_KIND.BOMB) {
+        specialOrigin = origin;
+        specialTarget = null;
+        detonateSpecial();
+        clearSelection();
+        renderBoard();
+        return;
+      }
+
+      if (target) {
+        attemptSwap(origin, target);
+      }
     }
 
     clearSelection();

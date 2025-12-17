@@ -1,20 +1,20 @@
 # Spojovačka
 
-Malá browser hra ve stylu “spojování tahem” (connect): táhneš myší přes stejné barvy, mažeš tvary, sbíráš skóre a vytváříš power-upy.
+Malá browser hra ve stylu **match‑3**: **prohazuješ dva sousední** tvary a pokud vznikne **vodorovná nebo svislá řada** (min 3), provede se to (jinak se tah vrátí).
 
 ## Ovládání
 
-- **Táhni myší** přes **stejné barvy** (4-směrově sousední) a **pusť**.
-- **Minimum je 3** spojené tvary.
+- **Přetáhni dílek** na **sousední** (nahoru/dolů/vlevo/vpravo) → dílky se **prohodí**.
+- Pokud po prohození **nevznikne řada 3+**, tah se **automaticky vrátí**.
 - **Skóre** se počítá **za každý zničený tvar** (včetně výbuchů).
 - **Nová hra**: tlačítko *Nová hra* nahoře.
 
 ## Power-upy
 
-- **4 spojené** → **🚀 raketa**
+- **4 v řadě** → **🚀 raketa**
   - Aktivace: **klik** na raketu, nebo **táhni o 1 políčko vedle** (výbuch se přesune).
   - Efekt: výbuch ve tvaru **“+”** (v rámci 3×3; střed + 4 sousedi).
-- **5+ spojených** → **💣 bomba**
+- **5+ v řadě** → **💣 bomba**
   - Aktivace: **klik** na bombu.
   - Efekt: výbuch **kruhem** o **průměru 5** (radius 2).
 
