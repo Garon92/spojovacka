@@ -377,6 +377,7 @@ export class GameScreen {
         if (!ge.el.classList.contains('is-done')) {
           ge.el.classList.add('is-done');
           ge.n.innerHTML = UI_ICONS.check;
+          if (!this.ended) gameSfx.play('star', { pitch: 2 });
         }
       } else {
         ge.el.classList.remove('is-done');
@@ -511,7 +512,7 @@ export class GameScreen {
   /* ---------------- moves ---------------- */
 
   private canAct() {
-    return this.active && !this.busy && !this.ended && !this.paused;
+    return this.active && !this.busy && !this.ended && !this.paused && !this.view.animating;
   }
 
   private cellTile(p: Pos) {
@@ -948,6 +949,9 @@ export class GameScreen {
 
   private exposeDebug() {
     const w = window as unknown as { __spojovacka?: unknown };
+    const settle = async () => {
+      for (let i = 0; i < 100 && (this.view.animating || this.busy); i++) await new Promise((r) => setTimeout(r, 30));
+    };
     w.__spojovacka = {
       state: () => this.state,
       mode: () => this.mode,
@@ -955,9 +959,13 @@ export class GameScreen {
       ended: () => this.ended,
       cellCenter: (x: number, y: number) => this.view.cellCenterClient({ x, y }),
       hint: () => bestHint(this.state.board),
-      move: (m: Move) => this.doMove(m),
+      move: async (m: Move) => {
+        await settle();
+        return this.doMove(m);
+      },
       /** play one move chosen by the bot (tests / demo) */
       botMove: async () => {
+        await settle();
         const m = chooseMove(this.state, createRng(randomSeed()), 1, 16);
         return m ? this.doMove(m) : false;
       },

@@ -130,6 +130,30 @@ export class BoardView {
     this.hint = null;
     this.drag = null;
     this.resize(true);
+    this.dropIn();
+  }
+
+  /** new board: pieces rain in column by column */
+  private dropIn() {
+    if (this.reduced) return;
+    const now = performance.now();
+    for (const v of this.tiles.values()) {
+      const tx = v.x;
+      const ty = v.y;
+      const from = ty - this.h - 1;
+      v.y = from;
+      const delay = tx * 45 + (this.h - ty) * 22;
+      this.anim.add({
+        start: now + delay,
+        dur: 420 + ty * 25,
+        update: (p) => {
+          v.y = lerp(from, ty, ease.outBack(p));
+        },
+        onEnd: () => {
+          v.y = ty;
+        },
+      });
+    }
   }
 
   /** Safety net after a move: make visuals match the state exactly. */
@@ -239,16 +263,30 @@ export class BoardView {
     cancelAnimationFrame(this.raf);
   }
 
+  /** true while any board animation runs (drop-in, nudge…) */
+  get animating() {
+    return this.anim.busy;
+  }
+
   /** finish all running animations at once */
   flush() {
     this.anim.flush();
     this.fx = [];
   }
 
+  private nextSparkle = 0;
+
   private frame(now: number) {
     const dt = Math.min(0.05, (now - this.lastT) / 1000);
     this.lastT = now;
     this.anim.tick(now);
+    // an occasional glint on a random piece while the board rests
+    if (!this.reduced && !this.anim.busy && now > this.nextSparkle && this.tiles.size) {
+      this.nextSparkle = now + 900 + Math.random() * 1600;
+      const arr = [...this.tiles.values()];
+      const v = arr[Math.floor(Math.random() * arr.length)];
+      this.particles.emit({ x: v.x + 0.3 + Math.random() * 0.2, y: v.y + 0.25 + Math.random() * 0.2, vx: 0, vy: 0, life: 0.7, size: 0.13, color: '#ffffff', kind: 'star', rot: 0, vr: 3, gravity: 0 });
+    }
     this.particles.update(dt);
     this.shakeAmp = Math.max(0, this.shakeAmp - dt * 30);
     this.draw(now);
@@ -414,13 +452,20 @@ export class BoardView {
         y += this.drag.dy;
         scale *= 1.1;
       }
+      // idle life: specials breathe, rainbows spin, chicks bob
+      let rot = v.rot;
+      if (!this.reduced && v.scale === 1) {
+        if (v.tile.special === 'rainbow') rot += now / 1400;
+        else if (v.tile.special !== 'none') scale *= 1 + 0.045 * Math.sin(now / 260 + v.tile.id);
+        else if (v.tile.kind === 'chick') y += Math.sin(now / 320 + v.tile.id) * 0.04;
+      }
       const img = sp.tile(v.tile);
       const cx = (x + 0.5) * s;
       const cy = (y + 0.5) * s;
       ctx.save();
       ctx.globalAlpha = clamp(v.alpha, 0, 1);
       ctx.translate(cx, cy);
-      if (v.rot) ctx.rotate(v.rot);
+      if (rot) ctx.rotate(rot);
       ctx.scale(scale * v.sx, scale * v.sy);
       ctx.drawImage(img, -size / 2, -size / 2, size, size);
       if (v.flash > 0.01) {

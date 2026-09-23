@@ -514,7 +514,8 @@ function spawnTile(s: GameState, spawnedChick: { v: boolean }): Tile {
     ch.spawned < ch.total &&
     ch.spawned - ch.collected < ch.maxOnBoard &&
     s.movesMade - ch.lastSpawnMove >= Math.max(1, ch.gap) &&
-    s.rng.next() < 0.35
+    // usually a random column; guaranteed when the remaining moves get tight
+    (s.rng.next() < 0.35 || (s.movesLeft !== null && s.movesLeft <= (ch.total - ch.spawned) * 5 + 2))
   ) {
     ch.spawned++;
     ch.lastSpawnMove = s.movesMade;
