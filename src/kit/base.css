@@ -1818,8 +1818,8 @@
     }
   }
 
-  /* Short landscape screens (phones sideways): hero left, controls right, no scrolling */
-  @media (max-height: 520px) and (orientation: landscape) {
+  /* Short landscape screens (phones sideways, ≤ 560 px tall): hero left, controls right, no scrolling */
+  @media (max-height: 560px) and (orientation: landscape) {
     .g92-overlay {
       padding-block: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-bottom, 0px));
     }

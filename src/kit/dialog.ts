@@ -132,8 +132,11 @@ export function openDialog(opts: DialogOptions): DialogHandle {
     el.append(foot);
   }
 
+  let openedAt = Infinity;
   el.addEventListener('cancel', (e) => {
     e.preventDefault();
+    // the Escape keydown that opened this dialog must not immediately close it again
+    if (performance.now() - openedAt < 150) return;
     if (dismissible) close(opts.dismissValue);
   });
   el.addEventListener('click', (e) => {
@@ -144,13 +147,22 @@ export function openDialog(opts: DialogOptions): DialogHandle {
   });
 
   document.body.append(el);
-  el.showModal();
-  // no explicit autofocus → focus the dialog itself (not the × button, which would show a focus ring)
-  if (!el.querySelector('[autofocus]')) {
-    el.tabIndex = -1;
-    el.focus({ preventScroll: true });
-  }
-  opts.onOpen?.(el);
+  const show = () => {
+    if (done || !el.isConnected) return;
+    el.showModal();
+    openedAt = performance.now();
+    // no explicit autofocus → focus the dialog itself (not the × button, which would show a focus ring)
+    if (!el.querySelector('[autofocus]')) {
+      el.tabIndex = -1;
+      el.focus({ preventScroll: true });
+    }
+    opts.onOpen?.(el);
+  };
+  // Opened from inside a keydown handler (e.g. Esc → "Opravdu odejít?"): the same key event would reach the
+  // new modal dialog and fire `cancel` right away — show it after the event has finished dispatching.
+  const current = (globalThis as { event?: Event }).event;
+  if (current && current.type === 'keydown') setTimeout(show, 0);
+  else show();
   return { el, body, close, closed };
 }
 

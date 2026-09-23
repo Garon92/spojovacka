@@ -25,6 +25,9 @@
  *   g92-help (cancelable)       help button pressed; default: showHelp() if setHelp() was used
  *   g92-settings (cancelable)   settings pressed; preventDefault() to show your own UI
  *   g92-fullscreen              detail: { active: boolean }
+ * Narrow screens: when the title would be truncated next to the actions, only the icon tile is shown
+ *   (the name stays for screen readers; host gets [data-title-collapsed]). Fullscreen button hides itself
+ *   where the Fullscreen API is missing (iPhone Safari).
  * CSS parts: bar, back, title, icon, name, actions, button
  */
 import { recordActivity } from './activity';
@@ -153,15 +156,38 @@ a:focus:not(:focus-visible), button:focus:not(:focus-visible) { outline: none; }
 ::slotted([slot="actions"]) { flex: none; }
 ::slotted([slot="title"]) { flex: 1 1 auto; min-width: 0; }
 .btn svg, .icon svg { display: block; }
+/* hidden twin of .name used to measure the title's natural width */
+.bar { position: relative; }
+.name.measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: visible;
+  max-width: none;
+}
+/* title doesn't fit next to all actions → show just the icon tile (name stays for screen readers) */
+.name.is-collapsed {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 @media (max-width: 479px) {
+  .bar { gap: 4px; padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
+  .actions { gap: 0; }
+  .title { gap: 8px; padding-left: 2px; }
   .back .label { display: none; }
   .back { width: 44px; padding: 0; justify-content: center; }
   .name { font-size: var(--g92-fs-md, 1rem); }
   .icon { width: 34px; height: 34px; border-radius: 11px; }
   .icon svg { width: 20px; height: 20px; }
-}
-@media (max-width: 359px) {
-  .icon { display: none; }
 }
 `;
 
@@ -185,14 +211,18 @@ export class G92Appbar extends HTMLElement {
   #els: {
     back: HTMLAnchorElement;
     backLabel: HTMLElement;
+    title: HTMLElement;
     icon: HTMLElement;
     name: HTMLElement;
+    measure: HTMLElement;
     help: HTMLButtonElement;
     sound: HTMLButtonElement;
     fs: HTMLButtonElement;
     settings: HTMLButtonElement;
   };
   #offSettings: (() => void) | null = null;
+  #ro: ResizeObserver | null = null;
+  #fitRaf = 0;
   #recorded = false;
   #onFsChange = () => {
     this.#renderFs();
@@ -206,7 +236,7 @@ export class G92Appbar extends HTMLElement {
 <header class="bar" part="bar">
   <a class="back" part="back" href="/menu/"><span aria-hidden="true">${UI_ICONS.back}</span><span class="label">Menu</span></a>
   <slot name="start"></slot>
-  <slot name="title"><div class="title" part="title"><span class="icon" part="icon" aria-hidden="true"></span><span class="name" part="name"></span></div></slot>
+  <slot name="title"><div class="title" part="title"><span class="icon" part="icon" aria-hidden="true"></span><span class="name" part="name"></span><span class="name measure" aria-hidden="true"></span></div></slot>
   <div class="actions" part="actions">
     <slot name="actions"></slot>
     <button class="btn help" part="button" type="button" aria-label="Jak na to" title="Jak na to" hidden>${UI_ICONS.help}</button>
@@ -219,8 +249,10 @@ export class G92Appbar extends HTMLElement {
     this.#els = {
       back: q('.back'),
       backLabel: q('.back .label'),
+      title: q('.title'),
       icon: q('.icon'),
-      name: q('.name'),
+      name: q('.name:not(.measure)'),
+      measure: q('.name.measure'),
       help: q('.help'),
       sound: q('.sound'),
       fs: q('.fs'),
@@ -256,6 +288,11 @@ export class G92Appbar extends HTMLElement {
     document.addEventListener('fullscreenchange', this.#onFsChange);
     document.addEventListener('webkitfullscreenchange', this.#onFsChange);
     this.#syncThemeColor();
+    if (!this.#ro && typeof ResizeObserver !== 'undefined') {
+      this.#ro = new ResizeObserver(() => this.#scheduleFit());
+      this.#ro.observe(this.#root.querySelector('.bar') as Element);
+    }
+    void document.fonts?.ready.then(() => this.#scheduleFit());
     const app = this.app;
     if (!this.#recorded && app && app !== 'menu' && !this.hasAttribute('no-activity') && getApp(app)) {
       this.#recorded = true;
@@ -264,6 +301,8 @@ export class G92Appbar extends HTMLElement {
   }
 
   disconnectedCallback(): void {
+    this.#ro?.disconnect();
+    this.#ro = null;
     this.#offSettings?.();
     this.#offSettings = null;
     document.removeEventListener('fullscreenchange', this.#onFsChange);
@@ -331,7 +370,9 @@ export class G92Appbar extends HTMLElement {
     const app = getApp(appId);
     const e = this.#els;
     e.icon.innerHTML = app?.icon ?? '';
-    e.name.textContent = this.getAttribute('heading') || app?.name || '';
+    const title = this.getAttribute('heading') || app?.name || '';
+    e.name.textContent = title;
+    e.measure.textContent = title;
     const back = this.getAttribute('back');
     const hideBack = back === 'none' || (appId === 'menu' && !back);
     e.back.hidden = hideBack;
@@ -345,6 +386,28 @@ export class G92Appbar extends HTMLElement {
     e.fs.hidden = !this.hasAttribute('fullscreen') || !fsEnabled();
     this.#renderFs();
     if (app && !this.hasAttribute('no-accent')) applyAccent(app.accent);
+    this.#scheduleFit();
+  }
+
+  #scheduleFit(): void {
+    cancelAnimationFrame(this.#fitRaf);
+    this.#fitRaf = requestAnimationFrame(() => this.#fit());
+  }
+
+  /** Collapse the title to the icon tile when it would be truncated next to all actions. */
+  #fit(): void {
+    const e = this.#els;
+    if (!this.isConnected || this.querySelector('[slot="title"]')) return;
+    const titleCs = getComputedStyle(e.title);
+    const gap = parseFloat(titleCs.columnGap) || 0;
+    const iconW = e.icon.offsetWidth ? e.icon.offsetWidth + gap : 0;
+    const available = e.title.clientWidth - (parseFloat(titleCs.paddingLeft) || 0) - iconW;
+    const natural = e.measure.getBoundingClientRect().width;
+    const collapse = natural > 0 && natural > available + 0.5 && iconW > 0;
+    e.name.classList.toggle('is-collapsed', collapse);
+    this.toggleAttribute('data-title-collapsed', collapse);
+    if (collapse) e.title.setAttribute('title', e.name.textContent ?? '');
+    else e.title.removeAttribute('title');
   }
 
   #renderSound(): void {
