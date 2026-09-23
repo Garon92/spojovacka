@@ -75,7 +75,8 @@ export function g92Pwa(appId: AppId, o: G92PwaOverrides = {}) {
   const app = PWA_APPS[appId];
   if (!app) throw new Error(`g92Pwa: unknown app "${appId}"`);
   const scope = app.path;
-  const categories = app.category === 'learn' ? ['education', 'kids'] : app.category === 'play' ? ['games', 'kids', 'entertainment'] : ['kids', 'education', 'games'];
+  // anglictina is maturita prep for a teen, not a kids' app
+  const categories = app.id === 'anglictina' ? ['education'] : app.category === 'learn' ? ['education', 'kids'] : app.category === 'play' ? ['games', 'kids', 'entertainment'] : ['kids', 'education', 'games'];
   return {
     registerType: 'autoUpdate' as const,
     injectRegister: 'auto' as const,
