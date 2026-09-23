@@ -8,10 +8,12 @@ Součást rozcestníku [garon92.github.io](https://garon92.github.io/) (sdílen�
 
 - **Úrovně** – mapa se 40 úrovněmi (Rozkvetlá louka, Tajemný les, Zamrzlé jezero, Hvězdná noc). Každá úroveň má
   úkoly a omezený počet tahů, za body 1–3 hvězdy. Zbylé tahy se na konci promění v rakety (bonus).
-- **Pohoda** – pro nejmenší: bez tahů, bez času, bez prohry. Na výběr 4, 5 nebo 6 barev.
+- **Denní výzva** – každý den jiná úloha (stejná deska pro všechny), série dní 🔥 a 🪙 50 za první splnění.
+- **Pohoda** – pro nejmenší: bez tahů, bez času, bez prohry. Na výběr 4, 5 nebo 6 barev; ruka ukazuje, kam táhnout.
 - **Na čas** – 90 sekund, co nejvíc bodů, každý odpálený speciál přidá sekundu; rekord pro každou obtížnost.
 - **Zvířátka** – kolečko se zvířátkem z původní hry (běží tím rychleji, čím víc bodů máš). Za mince 🪙 z her si koupíš
   další zvířátka (myška, potkan, křeček, pejsek, kočička, zajíček, dinosaurus, liška).
+- **Úspěchy** – 22 odznaků (rakety, komba, řetězy, kuřátka, světy, série…) a statistiky.
 
 ## Pravidla
 
@@ -34,7 +36,7 @@ duha+duha = celá deska, motýl+raketa/bomba = motýl speciál odnese.
 sbírání barev, body, odpálení speciálů.
 
 **Ovládání:** myš, dotyk i klávesnice (šipky = kurzor, Enter/mezerník = výběr, šipka = prohození, H = nápověda,
-P/Esc = pauza). Když chvíli nehraješ, hra sama ukáže tah. Když na desce žádný tah není, dílky se samy zamíchají.
+P/Esc = pauza, M = zvuk). Když chvíli nehraješ, hra sama ukáže tah. Když na desce žádný tah není, dílky se samy zamíchají.
 
 ## Vývoj
 
