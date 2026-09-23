@@ -76,10 +76,12 @@ export class GameScreen {
   private hudMoves: HTMLElement;
   private hudMovesLabel: HTMLElement;
   private hudGoals: HTMLElement;
+  private hudInfo: HTMLElement;
   private hudScore: HTMLElement;
   private hudStars: HTMLElement;
   private hudBar: HTMLElement;
   private sideInfo: HTMLElement;
+  private stageTitle: HTMLElement;
   private live: HTMLElement;
   private runner: Runner;
   private miniRunner: Runner;
@@ -123,6 +125,7 @@ export class GameScreen {
     this.hudMovesLabel = h('span', { class: 'hud__label' }, 'Tahy');
     this.hudMoves = h('span', { class: 'hud__big g92-tabular' }, '0');
     this.hudGoals = h('ul', { class: 'hud__goals', 'aria-label': 'Úkoly' });
+    this.hudInfo = h('div', { class: 'hud__info' });
     this.hudScore = h('span', { class: 'hud__score-val g92-tabular' }, '0');
     this.hudStars = h('span', { class: 'hud__stars', 'aria-hidden': 'true' });
     this.hudBar = h('span', { class: 'hud__bar' }, h('i'));
@@ -131,6 +134,7 @@ export class GameScreen {
     this.runner = new Runner(sideCanvas);
     this.miniRunner = new Runner(miniCanvas);
     this.sideInfo = h('div', { class: 'side__info' });
+    this.stageTitle = h('div', { class: 'game__title', 'aria-hidden': 'true' });
 
     this.hintBtn = h('button', { type: 'button', class: 'g92-btn g92-btn--secondary game__btn', 'aria-label': 'Nápověda (H)', title: 'Nápověda (H)' }, h('span', { class: 'game__btn-ico', 'aria-hidden': 'true' }, '💡'), h('span', { class: 'game__btn-txt' }, 'Nápověda')) as HTMLButtonElement;
     const pauseBtn = h('button', { type: 'button', class: 'g92-btn game__btn', 'aria-label': 'Pauza (P)', title: 'Pauza (P)', html: UI_ICONS.pause }, h('span', { class: 'game__btn-txt' }, 'Pauza'));
@@ -142,9 +146,10 @@ export class GameScreen {
       { class: 'hud' },
       h('div', { class: 'hud__moves' }, this.hudMovesLabel, this.hudMoves),
       this.hudGoals,
+      this.hudInfo,
       h('div', { class: 'hud__score' }, h('span', { class: 'hud__label' }, 'Body'), this.hudScore, h('span', { class: 'hud__starline' }, this.hudBar, this.hudStars)),
     );
-    const stage = h('div', { class: 'game__stage' }, this.canvas, this.callouts);
+    const stage = h('div', { class: 'game__stage' }, this.stageTitle, this.canvas, this.callouts);
     const bar = h('div', { class: 'game__bar' }, h('div', { class: 'game__mini' }, miniCanvas), this.hintBtn, pauseBtn);
     const side = h('aside', { class: 'game__side', 'aria-hidden': 'true' }, h('div', { class: 'side__card' }, sideCanvas, this.sideInfo));
     this.el.append(hud, stage, bar, side, this.live);
@@ -218,6 +223,7 @@ export class GameScreen {
     this.mode = 'relax';
     this.level = null;
     const prev = store.get('relaxDiff');
+    this.diff = prev;
     this.setup(createGame({ layout: PLAIN8, colors: DIFF_COLORS[prev], moves: null, goals: [] }, randomSeed()));
     const res = await showStart({
       appId: 'spojovacka',
@@ -249,6 +255,7 @@ export class GameScreen {
     this.mode = 'timed';
     this.level = null;
     let diff = store.get('timedDiff');
+    this.diff = diff;
     this.setup(createGame({ layout: PLAIN8, colors: DIFF_COLORS[diff], moves: null, goals: [] }, randomSeed()));
     this.timeLeft = TIMED_SECONDS;
     this.renderHud();
@@ -273,6 +280,7 @@ export class GameScreen {
       if (!this.active) return;
       diff = (res.difficulty as Difficulty) ?? 'normal';
       store.set('timedDiff', diff);
+      this.diff = diff;
       this.setup(createGame({ layout: PLAIN8, colors: DIFF_COLORS[diff], moves: null, goals: [] }, randomSeed()));
       this.timeLeft = TIMED_SECONDS;
       this.renderHud();
@@ -363,6 +371,11 @@ export class GameScreen {
       this.goalEls.push({ el, n });
     }
     this.hudGoals.hidden = this.displayGoals.length === 0;
+    this.hudInfo.hidden = this.displayGoals.length > 0;
+    if (this.mode !== 'level') {
+      const best = this.mode === 'timed' ? store.get('timedBest')[this.diff] : store.get('relaxBest');
+      this.hudInfo.innerHTML = best > 0 ? `${UI_ICONS.trophy}<span>${this.mode === 'timed' ? 'Rekord' : 'Nejlepší'} <b>${fmt(best)}</b></span>` : '';
+    }
     this.updateGoals();
   }
 
@@ -452,6 +465,12 @@ export class GameScreen {
 
   private renderSide() {
     this.sideInfo.textContent = '';
+    this.stageTitle.textContent =
+      this.mode === 'level' && this.level
+        ? `${WORLDS[this.level.world].emoji} Úroveň ${this.level.id}`
+        : this.mode === 'timed'
+          ? `⏱️ Na čas · ${DIFFICULTIES.find((d) => d.id === this.diff)?.label ?? ''}`
+          : '🧸 Pohoda';
     if (this.mode === 'level' && this.level) {
       const w = WORLDS[this.level.world];
       this.sideInfo.append(

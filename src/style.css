@@ -665,6 +665,23 @@ html[data-scheme='dark'] .game[data-theme='timed'] {
   min-height: 0;
   min-width: 0;
 }
+.game__title {
+  display: none;
+}
+@media (max-aspect-ratio: 3/4) {
+  .game__title {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 4px;
+    text-align: center;
+    font-weight: var(--g92-fw-black);
+    font-size: var(--g92-fs-lg);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+}
 .board {
   position: absolute;
   inset: 0;
@@ -782,7 +799,27 @@ html[data-scheme='dark'] .game[data-theme='timed'] {
   height: 20px;
   display: block;
 }
+.hud__info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: var(--g92-fw-bold);
+  opacity: 0.8;
+  min-width: 0;
+}
+.hud__info[hidden] {
+  display: none;
+}
+.hud__info svg {
+  width: 20px;
+  height: 20px;
+  color: var(--g92-gold);
+  flex: none;
+}
 .hud__score {
+  margin-left: auto;
   display: grid;
   align-content: center;
   justify-items: end;
@@ -943,6 +980,10 @@ html[data-scheme='dark'] .hud__stars span,
   }
   .hud__score {
     justify-items: start;
+    margin-left: 0;
+  }
+  .hud__info {
+    justify-content: flex-start;
   }
   .hud__starline {
     justify-items: start;
