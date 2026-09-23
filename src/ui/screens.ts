@@ -2,8 +2,9 @@ import { LEVELS, WORLDS } from '../core/levels';
 import { UI_ICONS, confirmDialog, h, toast, sfx as kitSfx } from '../kit';
 import { tileIcon } from '../render/sprites';
 import { Runner, SKINS, animalPortrait } from '../render/runner';
-import { MAX_STARS, isUnlocked, levelRecord, nextLevel, store, totalStars } from '../app/save';
+import { MAX_STARS, getStats, isUnlocked, levelRecord, nextLevel, store, totalStars } from '../app/save';
 import { gem } from './content';
+import { ACHIEVEMENTS, checkAchievements, unlockedCount } from '../app/achievements';
 import type { Nav } from './nav';
 
 const fmt = (n: number) => n.toLocaleString('cs-CZ');
@@ -68,6 +69,7 @@ export class HomeScreen {
           card('relax', '🧸', 'Pohoda', 'Bez prohry, pro nejmenší', '#/pohoda'),
           card('timed', '⏱️', 'Na čas', bestTimed > 0 ? `90 sekund · rekord ${fmt(bestTimed)}` : '90 sekund na co nejvíc bodů', '#/na-cas'),
           card('pets', SKINS.find((s) => s.id === store.get('activeSkin'))?.emoji ?? '🐭', 'Zvířátka', 'Kolečko a nová zvířátka za mince', '#/zviratka'),
+          card('trophies', '🏆', 'Úspěchy', `${unlockedCount()} z ${ACHIEVEMENTS.length} odemčeno`, '#/uspechy'),
           card('help', '❓', 'Jak hrát', 'Speciály, komba a překážky', '#/jak-hrat'),
         ),
         this.statsLine(),
@@ -76,7 +78,7 @@ export class HomeScreen {
   }
 
   private statsLine() {
-    const st = store.get('stats');
+    const st = getStats();
     if (st.games === 0) return null;
     const parts = [`Odehráno ${fmt(st.games)} ${st.games === 1 ? 'hra' : st.games < 5 ? 'hry' : 'her'}`];
     if (st.tiles > 0) parts.push(`spojeno ${fmt(st.tiles)} dílků`);
@@ -237,6 +239,7 @@ export class PetsScreen {
       store.set('ownedSkins', [...owned, id]);
       kitSfx.coin();
       toast(`${skin.emoji} ${skin.name} je tvoje!`, { variant: 'success' });
+      for (const a of checkAchievements()) setTimeout(() => toast(`${a.emoji} Nový úspěch: ${a.name}`, { variant: 'success', icon: UI_ICONS.trophy }), 1200);
     } else kitSfx.tap();
     store.set('activeSkin', id);
     this.render();
@@ -254,3 +257,64 @@ export class PetsScreen {
   }
 }
 
+
+/* ------------------------------------------------------------------ achievements */
+
+export class TrophiesScreen {
+  readonly el = h('section', { class: 'screen trophies', id: 'scr-trophies', hidden: true });
+  constructor(private nav: Nav) {}
+
+  render() {
+    checkAchievements();
+    const have = new Set(store.get('achievements'));
+    const back = h('button', { type: 'button', class: 'g92-btn g92-btn--ghost g92-btn--icon', 'aria-label': 'Zpět', html: UI_ICONS.back });
+    back.addEventListener('click', () => this.nav.go('#/'));
+    const list = h('ul', { class: 'trophies__list' });
+    for (const a of ACHIEVEMENTS) {
+      const [cur, goal] = a.progress();
+      const done = have.has(a.id);
+      list.append(
+        h(
+          'li',
+          { class: `trophy${done ? ' is-done' : ''}` },
+          h('span', { class: 'trophy__emoji', 'aria-hidden': 'true' }, a.emoji),
+          h(
+            'div',
+            { class: 'trophy__txt' },
+            h('b', null, a.name),
+            h('span', null, a.desc),
+            done
+              ? h('span', { class: 'trophy__state', html: `${UI_ICONS.check} Splněno` })
+              : h('span', { class: 'g92-progress g92-progress--sm trophy__bar', style: `--value:${Math.min(1, cur / goal).toFixed(3)}`, role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(goal), 'aria-valuenow': String(cur) }),
+          ),
+          done ? null : h('span', { class: 'trophy__num g92-tabular' }, `${fmt(Math.min(cur, goal))} / ${fmt(goal)}`),
+        ),
+      );
+    }
+    const st = getStats();
+    const stats = h(
+      'dl',
+      { class: 'trophies__stats' },
+      ...[
+        ['Odehráno her', st.games],
+        ['Výher', st.wins],
+        ['Spojeno dílků', st.tiles],
+        ['Raket', st.rockets],
+        ['Bomb', st.bombs],
+        ['Motýlů', st.butterflies],
+        ['Zachráněno kuřátek', st.chicks],
+        ['Nejdelší řetěz', `×${st.bestCascade}`],
+      ].map(([k, v]) => h('div', null, h('dt', null, String(k)), h('dd', { class: 'g92-tabular' }, typeof v === 'number' ? fmt(v) : String(v)))),
+    );
+    this.el.replaceChildren(
+      h(
+        'div',
+        { class: 'screen__inner' },
+        h('header', { class: 'screen__head' }, back, h('h2', { class: 'screen__title' }, 'Úspěchy'), h('span', { class: 'g92-spacer' }), h('span', { class: 'pill', html: `${UI_ICONS.trophy}<b class="g92-tabular">${have.size}</b><span class="pill__of">/ ${ACHIEVEMENTS.length}</span>` })),
+        list,
+        h('h3', { class: 'trophies__h' }, 'Statistiky'),
+        stats,
+      ),
+    );
+  }
+}

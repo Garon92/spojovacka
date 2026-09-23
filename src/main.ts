@@ -9,9 +9,9 @@ import { tileIcon } from './render/sprites';
 import { gem } from './ui/content';
 import { GameScreen } from './ui/gameScreen';
 import type { Nav } from './ui/nav';
-import { HomeScreen, MapScreen, PetsScreen } from './ui/screens';
+import { HomeScreen, MapScreen, PetsScreen, TrophiesScreen } from './ui/screens';
 
-type ScreenName = 'home' | 'map' | 'pets' | 'game';
+type ScreenName = 'home' | 'map' | 'pets' | 'game' | 'trophies';
 
 const app = document.getElementById('app')!;
 const nav: Nav = {
@@ -26,7 +26,8 @@ const home = new HomeScreen(nav);
 const map = new MapScreen(nav);
 const pets = new PetsScreen(nav);
 const game = new GameScreen(nav);
-app.append(home.el, map.el, pets.el, game.el);
+const trophies = new TrophiesScreen(nav);
+app.append(home.el, map.el, pets.el, trophies.el, game.el);
 
 let current: ScreenName | null = null;
 let lastNonHelp = '#/';
@@ -38,6 +39,7 @@ function show(name: ScreenName) {
   home.el.hidden = name !== 'home';
   map.el.hidden = name !== 'map';
   pets.el.hidden = name !== 'pets';
+  trophies.el.hidden = name !== 'trophies';
   document.body.dataset.screen = name;
   if (name === 'home') {
     home.render();
@@ -45,6 +47,8 @@ function show(name: ScreenName) {
   } else if (name === 'map') {
     map.render();
     map.focus();
+  } else if (name === 'trophies') {
+    trophies.render();
   } else if (name === 'pets') {
     pets.render();
     pets.enter();
@@ -71,6 +75,8 @@ function route() {
       return show('map');
     case 'zviratka':
       return show('pets');
+    case 'uspechy':
+      return show('trophies');
     case 'pohoda':
       show('game');
       return void game.startRelax();

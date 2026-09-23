@@ -16,7 +16,29 @@ export interface Stats {
   tiles: number;
   specials: number;
   bestCascade: number;
+  rockets: number;
+  bombs: number;
+  butterflies: number;
+  rainbowsMade: number;
+  combos: number;
+  megaCombos: number;
+  chicks: number;
 }
+
+const EMPTY_STATS: Stats = {
+  games: 0,
+  wins: 0,
+  tiles: 0,
+  specials: 0,
+  bestCascade: 0,
+  rockets: 0,
+  bombs: 0,
+  butterflies: 0,
+  rainbowsMade: 0,
+  combos: 0,
+  megaCombos: 0,
+  chicks: 0,
+};
 
 const THEMES: PieceTheme[] = ['shapes', 'balls', 'diamonds', 'dinos'];
 
@@ -34,8 +56,9 @@ export const store = createStore('spojovacka', {
     relaxBest: 0,
     relaxDiff: 'easy' as Difficulty,
     timedDiff: 'normal' as Difficulty,
-    stats: { games: 0, wins: 0, tiles: 0, specials: 0, bestCascade: 0 } as Stats,
+    stats: { ...EMPTY_STATS } as Stats,
     seenTips: [] as string[],
+    achievements: [] as string[],
   },
   migrate(from, m) {
     if (from < 2) {
@@ -91,14 +114,20 @@ export function addCoins(n: number): number {
   return store.update('coins', (c) => Math.max(0, c + Math.round(n)));
 }
 
+/** stats with defaults for fields added later */
+export function getStats(): Stats {
+  return { ...EMPTY_STATS, ...store.get('stats') };
+}
+
 export function recordStats(p: Partial<Stats>) {
-  store.update('stats', (s) => ({
-    games: s.games + (p.games ?? 0),
-    wins: s.wins + (p.wins ?? 0),
-    tiles: s.tiles + (p.tiles ?? 0),
-    specials: s.specials + (p.specials ?? 0),
-    bestCascade: Math.max(s.bestCascade, p.bestCascade ?? 0),
-  }));
+  const s = getStats();
+  const next = { ...s };
+  for (const k of Object.keys(EMPTY_STATS) as (keyof Stats)[]) {
+    const v = p[k];
+    if (v === undefined) continue;
+    next[k] = k === 'bestCascade' ? Math.max(s[k], v) : s[k] + v;
+  }
+  store.set('stats', next);
 }
 
 /** coins for a score (all modes) */

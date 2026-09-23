@@ -3,7 +3,7 @@ import { matchSizeAt } from './match';
 import { hasMove } from './moves';
 import { createRng, type Rng } from './rng';
 import { shuffleBoard } from './shuffle';
-import type { Board, ChickState, GameConfig, GameStats, Goal, GoalDef, Tile } from './types';
+import { emptyStats, type Board, type ChickState, type GameConfig, type GameStats, type Goal, type GoalDef, type Tile } from './types';
 
 export interface GameState {
   board: Board;
@@ -79,7 +79,7 @@ export function createGame(cfg: GameConfig, seed: number): GameState {
     movesMade: 0,
     goals: [],
     chicks: null,
-    stats: { cleared: 0, specialsMade: 0, specialsUsed: 0, maxCascade: 0, combos: 0 },
+    stats: emptyStats(),
     exits: exitRows(board),
   };
   for (const p of chicks) {
@@ -111,7 +111,7 @@ export function cloneState(s: GameState, seed?: number): GameState {
     rng: seed === undefined ? s.rng.clone() : createRng(seed),
     goals: s.goals.map((g) => ({ ...g })),
     chicks: s.chicks ? { ...s.chicks } : null,
-    stats: { ...s.stats },
+    stats: { ...s.stats, used: { ...s.stats.used }, made: { ...s.stats.made } },
     exits: [...s.exits],
   };
 }

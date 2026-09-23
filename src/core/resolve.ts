@@ -225,6 +225,8 @@ function removeTile(ph: Phase, i: number, t: number, src: number, activate: bool
   damageIce(ph, i, t, src);
   if (tile.special !== 'none') {
     s.stats.specialsUsed++;
+    const fam = familyOf(tile.special);
+    if (fam) s.stats.used[fam]++;
     if (activate) {
       const eff = effectOf(tile.special);
       if (eff) push(ph, { kind: 'act', t: t + TIME.fuse, x, y, src: popup(ph, x, y, t), eff, color: tile.color });
@@ -368,6 +370,7 @@ function activate(ph: Phase, e: Ev) {
       break;
     }
     case 'rainbowAll': {
+      ph.s.stats.megaCombos++;
       ph.step.activations.push({ kind: 'rainbowAll', x, y, t });
       for (let i = 0; i < b.cells.length; i++) {
         const px = i % b.w;
@@ -460,6 +463,8 @@ function runPhase(s: GameState, groups: MatchGroup[], actions: InitialAction[], 
       ph.protectedIds.add(nt.id);
       step.created.push({ tile: { ...nt }, x: g.at.x, y: g.at.y, t: TIME.create, replacedId: old.id });
       s.stats.specialsMade++;
+      const fam = familyOf(g.special);
+      if (fam) s.stats.made[fam]++;
       gain(ph, SCORE.create[g.special] + SCORE.gem * ph.mult, src);
       damageIce(ph, ai, 0, src);
       mergeTo = g.at;

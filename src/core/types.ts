@@ -89,6 +89,25 @@ export interface GameStats {
   specialsUsed: number;
   maxCascade: number;
   combos: number;
+  /** specials that went off, per family */
+  used: Record<SpecialFamily, number>;
+  /** specials created from matches, per family */
+  made: Record<SpecialFamily, number>;
+  /** rainbow + rainbow */
+  megaCombos: number;
+}
+
+export function emptyStats(): GameStats {
+  return {
+    cleared: 0,
+    specialsMade: 0,
+    specialsUsed: 0,
+    maxCascade: 0,
+    combos: 0,
+    used: { rocket: 0, bomb: 0, rainbow: 0, butterfly: 0 },
+    made: { rocket: 0, bomb: 0, rainbow: 0, butterfly: 0 },
+    megaCombos: 0,
+  };
 }
 
 export interface ChickState extends ChickConfig {

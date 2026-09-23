@@ -1,6 +1,6 @@
 import { createRng } from '../src/core/rng';
 import type { GameState } from '../src/core/state';
-import type { Board, Cell, Special, Tile } from '../src/core/types';
+import { emptyStats, type Board, type Cell, type Special, type Tile } from '../src/core/types';
 
 /**
  * Build a state from rows of characters:
@@ -52,7 +52,7 @@ export function stateFrom(rows: string[], opts: { colors?: number; moves?: numbe
     movesMade: 0,
     goals: [],
     chicks: null,
-    stats: { cleared: 0, specialsMade: 0, specialsUsed: 0, maxCascade: 0, combos: 0 },
+    stats: emptyStats(),
     exits,
   };
 }

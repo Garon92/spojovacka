@@ -4,7 +4,7 @@ import { LEVELS, WORLDS, levelById, levelConfig, starsFor, type LevelDef } from 
 import { bestHint, findTaps } from '../core/moves';
 import { createRng, randomSeed } from '../core/rng';
 import { createGame, isLost, isWon, type GameState } from '../core/state';
-import type { Goal, Move, Pos } from '../core/types';
+import { emptyStats, type GameStats, type Goal, type Move, type Pos } from '../core/types';
 import { sfx as gameSfx } from '../audio/sfx';
 import { BoardInput } from '../input/boardInput';
 import {
@@ -37,6 +37,7 @@ import {
   type Difficulty,
 } from '../app/save';
 import { TIPS, goalIcon, goalLabel, howToContent } from './content';
+import { checkAchievements } from '../app/achievements';
 import type { Nav } from './nav';
 
 export type Mode = 'level' | 'relax' | 'timed';
@@ -109,6 +110,9 @@ export class GameScreen {
   private extraBought = 0;
   /** bumps on every start/leave so stale async flows (dialogs, countdown) can bail out */
   private session = 0;
+  /** stats already written to the store for the current game (commit deltas only) */
+  private baseline: GameStats = emptyStats();
+  private baseChicks = 0;
   private unsubs: (() => void)[] = [];
   private resizeObs: ResizeObserver;
   private goalEls: { el: HTMLElement; n: HTMLElement }[] = [];
@@ -315,6 +319,7 @@ export class GameScreen {
 
   /** called when leaving the screen */
   leave() {
+    if (this.state) this.commitGame(false);
     this.session++;
     this.active = false;
     this.ended = true;
@@ -336,7 +341,10 @@ export class GameScreen {
   /* ---------------- setup & HUD ---------------- */
 
   private setup(state: GameState) {
+    if (this.state && this.state !== state) this.commitGame(false);
     this.state = state;
+    this.baseline = emptyStats();
+    this.baseChicks = 0;
     this.busy = false;
     this.ended = true;
     this.paused = false;
@@ -594,7 +602,6 @@ export class GameScreen {
     this.syncDisplay();
     this.busy = false;
     const st = this.state.stats;
-    recordStats({ bestCascade: res.cascades });
     void st;
     void this.afterMove();
     return true;
@@ -842,7 +849,7 @@ export class GameScreen {
     const { newStars } = submitLevel(level.id, stars, score);
     const coins = coinsForScore(score) + newStars * 10;
     addCoins(coins);
-    recordStats({ wins: 1, tiles: this.state.stats.cleared, specials: this.state.stats.specialsUsed });
+    this.commitGame(true);
     this.reportActivity();
     const isLast = level.id >= LEVELS.length;
     const choice = await showResults({
@@ -883,7 +890,7 @@ export class GameScreen {
     const level = this.level!;
     this.ended = true;
     clearTimeout(this.idleTimer);
-    recordStats({ tiles: this.state.stats.cleared, specials: this.state.stats.specialsUsed });
+    this.commitGame(false);
     const missing = this.state.goals.filter((g) => g.done < g.target).map((g) => `${goalLabel(g).replace(/\s*\(\d+×\)/, '')}: chybí ${g.kind === 'score' ? fmt(g.target - g.done) : g.target - g.done}`);
     const cost = EXTRA_COST * (this.extraBought + 1);
     const coins = store.get('coins');
@@ -933,7 +940,7 @@ export class GameScreen {
     if (isNewBest) store.set('timedBest', { ...bestMap, [this.diff]: score });
     const coins = coinsForScore(score);
     addCoins(coins);
-    recordStats({ tiles: this.state.stats.cleared, specials: this.state.stats.specialsUsed });
+    this.commitGame(false);
     this.reportActivity();
     const choice = await showResults({
       title: isNewBest && prevBest > 0 ? 'Nový rekord!' : 'Čas vypršel!',
@@ -965,7 +972,7 @@ export class GameScreen {
     if (score > prevBest) store.set('relaxBest', score);
     const coins = coinsForScore(score);
     addCoins(coins);
-    recordStats({ tiles: this.state.stats.cleared, specials: this.state.stats.specialsUsed });
+    this.commitGame(false);
     this.reportActivity();
     const choice = await showResults({
       title: 'Hezky sis zahrál(a)!',
@@ -984,6 +991,41 @@ export class GameScreen {
     if (!this.active) return;
     if (choice === 'again') this.restart();
     else this.nav.go('#/');
+  }
+
+  /** write this game's stats (only what wasn't written yet) and announce new achievements */
+  private commitGame(win: boolean) {
+    const st = this.state.stats;
+    const b = this.baseline;
+    const chicks = this.state.chicks?.collected ?? 0;
+    const delta = {
+      wins: win ? 1 : 0,
+      tiles: st.cleared - b.cleared,
+      specials: st.specialsUsed - b.specialsUsed,
+      rockets: st.used.rocket - b.used.rocket,
+      bombs: st.used.bomb - b.used.bomb,
+      butterflies: st.used.butterfly - b.used.butterfly,
+      rainbowsMade: st.made.rainbow - b.made.rainbow,
+      combos: st.combos - b.combos,
+      megaCombos: st.megaCombos - b.megaCombos,
+      chicks: chicks - this.baseChicks,
+      bestCascade: st.maxCascade,
+    };
+    const any = Object.entries(delta).some(([k, v]) => k !== 'bestCascade' && v > 0) || st.maxCascade > b.maxCascade;
+    this.baseline = { ...st, used: { ...st.used }, made: { ...st.made } };
+    this.baseChicks = chicks;
+    if (!any) return;
+    recordStats(delta);
+    this.announceAchievements();
+  }
+
+  announceAchievements() {
+    checkAchievements().forEach((a, i) => {
+      setTimeout(() => {
+        toast(`${a.emoji} Nový úspěch: ${a.name}`, { variant: 'success', icon: UI_ICONS.trophy, duration: 4000 });
+        gameSfx.play('star', { pitch: 2 });
+      }, 1600 + i * 900);
+    });
   }
 
   private reportActivity() {
