@@ -1550,3 +1550,23 @@ html[data-motion='reduce'] .callout {
 .intro__tip.intro__tip--row {
   grid-template-columns: auto 1fr;
 }
+
+/* world decorations (subtle patterns behind the board) */
+.game[data-theme='meadow'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='%23ffffff' fill-opacity='0.55'%3E%3Cg transform='translate(24 30)'%3E%3Ccircle r='5' cx='0' cy='-7'/%3E%3Ccircle r='5' cx='7' cy='0'/%3E%3Ccircle r='5' cx='0' cy='7'/%3E%3Ccircle r='5' cx='-7' cy='0'/%3E%3C/g%3E%3Cg transform='translate(98 92) scale(.7)'%3E%3Ccircle r='5' cx='0' cy='-7'/%3E%3Ccircle r='5' cx='7' cy='0'/%3E%3Ccircle r='5' cx='0' cy='7'/%3E%3Ccircle r='5' cx='-7' cy='0'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23facc15' fill-opacity='0.6'%3E%3Ccircle cx='24' cy='30' r='3.5'/%3E%3Ccircle cx='98' cy='92' r='2.5'/%3E%3C/g%3E%3Ccircle cx='70' cy='120' r='2' fill='%23ffffff' fill-opacity='.5'/%3E%3C/svg%3E"), linear-gradient(180deg, #e0f2fe 0%, #f0fdf4 55%, #dcfce7 100%);
+}
+.game[data-theme='forest'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23065f46' fill-opacity='0.12'%3E%3Cpath d='M30 20 L46 52 H14 Z'/%3E%3Cpath d='M30 36 L50 74 H10 Z'/%3E%3Cpath d='M118 90 L130 114 H106 Z'/%3E%3Cpath d='M118 102 L134 132 H102 Z'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg, #d1fae5 0%, #a7f3d0 60%, #6ee7b7 100%);
+}
+.game[data-theme='lake'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg stroke='%23ffffff' stroke-opacity='0.7' stroke-width='2' stroke-linecap='round'%3E%3Cg transform='translate(30 34)'%3E%3Cpath d='M0 -9V9M-8 -4.5L8 4.5M-8 4.5L8 -4.5'/%3E%3C/g%3E%3Cg transform='translate(110 100) scale(.7)'%3E%3Cpath d='M0 -9V9M-8 -4.5L8 4.5M-8 4.5L8 -4.5'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='80' cy='20' r='2' fill='%23ffffff' fill-opacity='.7'/%3E%3Ccircle cx='20' cy='120' r='1.6' fill='%23ffffff' fill-opacity='.7'/%3E%3C/svg%3E"), linear-gradient(180deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+}
+html[data-scheme='dark'] .game[data-theme='meadow'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cg transform='translate(24 30)'%3E%3Ccircle r='5' cx='0' cy='-7'/%3E%3Ccircle r='5' cx='7' cy='0'/%3E%3Ccircle r='5' cx='0' cy='7'/%3E%3Ccircle r='5' cx='-7' cy='0'/%3E%3C/g%3E%3Cg transform='translate(98 92) scale(.7)'%3E%3Ccircle r='5' cx='0' cy='-7'/%3E%3Ccircle r='5' cx='7' cy='0'/%3E%3Ccircle r='5' cx='0' cy='7'/%3E%3Ccircle r='5' cx='-7' cy='0'/%3E%3C/g%3E%3C/g%3E%3Cg fill='%23facc15' fill-opacity='0.12'%3E%3Ccircle cx='24' cy='30' r='3.5'/%3E%3Ccircle cx='98' cy='92' r='2.5'/%3E%3C/g%3E%3Ccircle cx='70' cy='120' r='2' fill='%23ffffff' fill-opacity='.5'/%3E%3C/svg%3E"), linear-gradient(180deg, #0b1f2e 0%, #0f2a1d 100%);
+}
+html[data-scheme='dark'] .game[data-theme='forest'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23a7f3d0' fill-opacity='0.06'%3E%3Cpath d='M30 20 L46 52 H14 Z'/%3E%3Cpath d='M30 36 L50 74 H10 Z'/%3E%3Cpath d='M118 90 L130 114 H106 Z'/%3E%3Cpath d='M118 102 L134 132 H102 Z'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(180deg, #022c22 0%, #064e3b 100%);
+}
+html[data-scheme='dark'] .game[data-theme='lake'] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg stroke='%23ffffff' stroke-opacity='0.15' stroke-width='2' stroke-linecap='round'%3E%3Cg transform='translate(30 34)'%3E%3Cpath d='M0 -9V9M-8 -4.5L8 4.5M-8 4.5L8 -4.5'/%3E%3C/g%3E%3Cg transform='translate(110 100) scale(.7)'%3E%3Cpath d='M0 -9V9M-8 -4.5L8 4.5M-8 4.5L8 -4.5'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='80' cy='20' r='2' fill='%23ffffff' fill-opacity='.15'/%3E%3Ccircle cx='20' cy='120' r='1.6' fill='%23ffffff' fill-opacity='.15'/%3E%3C/svg%3E"), linear-gradient(180deg, #0b1b33 0%, #0c3052 100%);
+}
