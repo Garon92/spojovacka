@@ -53,6 +53,13 @@ async function flows(kind, dark) {
   await page.goto(base + '#/zviratka');
   await wait(page, 900);
   await shot(page, `pets-${tag}`);
+  await page.goto(base + '#/uspechy');
+  await wait(page, 600);
+  await shot(page, `trophies-${tag}`);
+  await page.goto(base + '#/denni');
+  await wait(page, 900);
+  await shot(page, `daily-intro-${tag}`);
+  await page.goto(base + '#/');
   // level with obstacles
   await page.goto(base + '#/uroven/10');
   await wait(page, 900);

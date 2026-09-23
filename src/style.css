@@ -1547,3 +1547,6 @@ html[data-motion='reduce'] .callout {
 .intro__daily-ico {
   font-size: 30px;
 }
+.intro__tip.intro__tip--row {
+  grid-template-columns: auto 1fr;
+}

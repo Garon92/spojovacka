@@ -25,9 +25,9 @@ function starPill() {
 
 function dailyText(): string {
   const d = dailyState();
-  if (d.doneToday) return `Dnes splněno ✓ · série ${d.streak} 🔥`;
-  if (d.streak > 0) return `Série ${d.streak} 🔥 – nenech ji vyhasnout!`;
-  return 'Každý den nová úloha · 🪙 50';
+  if (d.doneToday) return `Splněno ✓ · série ${d.streak} 🔥`;
+  if (d.streak > 0) return `Série ${d.streak} 🔥 – pokračuj!`;
+  return 'Nová každý den · 🪙 50';
 }
 
 export class HomeScreen {

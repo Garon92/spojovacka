@@ -557,7 +557,7 @@ export class GameScreen {
       content.append(
         h(
           'div',
-          { class: 'intro__tip' },
+          { class: 'intro__tip intro__tip--row' },
           h('span', { class: 'intro__daily-ico', 'aria-hidden': 'true' }, daily.doneToday ? '✅' : '🔥'),
           h(
             'div',
