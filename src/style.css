@@ -1541,7 +1541,9 @@ html[data-motion='reduce'] .callout {
   font-size: var(--g92-fs-xl);
   font-weight: var(--g92-fw-black);
 }
-.home__modes .modecard--help {
-  grid-column: 1 / -1;
-  min-height: 64px;
+.modecard--daily .modecard__ico {
+  background: #ffe4e6;
+}
+.intro__daily-ico {
+  font-size: 30px;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LAYOUT_CHARS } from '../src/core/board';
 import { chooseMove } from '../src/core/bot';
 import { playBonus, playMove } from '../src/core/game';
-import { LEVELS, WORLDS, levelConfig, starsFor } from '../src/core/levels';
+import { LEVELS, WORLDS, dailyLevel, dailySeed, levelConfig, starsFor } from '../src/core/levels';
 import { findMatches } from '../src/core/match';
 import { hasMove } from '../src/core/moves';
 import { createRng } from '../src/core/rng';
@@ -82,4 +82,30 @@ describe('every level is winnable', () => {
     }
     expect(wins).toBeGreaterThan(0);
   }, 20000);
+});
+
+describe('daily challenge', () => {
+  it('is deterministic per day and varies across days', () => {
+    expect(dailyLevel('2026-09-23')).toEqual(dailyLevel('2026-09-23'));
+    const ids = new Set<number>();
+    for (let d = 1; d <= 28; d++) ids.add(dailyLevel(`2026-02-${String(d).padStart(2, '0')}`).id);
+    expect(ids.size).toBeGreaterThan(8);
+  });
+
+  it('produces valid, winnable-looking levels with the same board for everybody', () => {
+    for (let d = 1; d <= 60; d++) {
+      const key = `2027-01-${String((d % 28) + 1).padStart(2, '0')}-${d}`;
+      const l = dailyLevel(key);
+      expect(l.id).toBeGreaterThan(5);
+      expect(l.tip).toBeUndefined();
+      const colors = l.goals.filter((g) => g.type === 'color').map((g) => (g.type === 'color' ? g.color : -1));
+      expect(new Set(colors).size).toBe(colors.length);
+      for (const c of colors) expect(c).toBeLessThan(l.colors);
+      const a = createGame(levelConfig(l), dailySeed(key));
+      const b = createGame(levelConfig(l), dailySeed(key));
+      expect(a.board.cells.map((c) => c.tile?.color)).toEqual(b.board.cells.map((c) => c.tile?.color));
+      expect(findMatches(a.board)).toEqual([]);
+      expect(hasMove(a.board)).toBe(true);
+    }
+  });
 });

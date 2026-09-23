@@ -2,7 +2,7 @@ import { LEVELS, WORLDS } from '../core/levels';
 import { UI_ICONS, confirmDialog, h, toast, sfx as kitSfx } from '../kit';
 import { tileIcon } from '../render/sprites';
 import { Runner, SKINS, animalPortrait } from '../render/runner';
-import { MAX_STARS, getStats, isUnlocked, levelRecord, nextLevel, store, totalStars } from '../app/save';
+import { MAX_STARS, dailyState, getStats, isUnlocked, levelRecord, nextLevel, store, totalStars } from '../app/save';
 import { gem } from './content';
 import { ACHIEVEMENTS, checkAchievements, unlockedCount } from '../app/achievements';
 import type { Nav } from './nav';
@@ -22,6 +22,13 @@ function starPill() {
 }
 
 /* ------------------------------------------------------------------ home */
+
+function dailyText(): string {
+  const d = dailyState();
+  if (d.doneToday) return `Dnes splněno ✓ · série ${d.streak} 🔥`;
+  if (d.streak > 0) return `Série ${d.streak} 🔥 – nenech ji vyhasnout!`;
+  return 'Každý den nová úloha · 🪙 50';
+}
 
 export class HomeScreen {
   readonly el = h('section', { class: 'screen home', id: 'scr-home', hidden: true });
@@ -66,6 +73,7 @@ export class HomeScreen {
         h(
           'div',
           { class: 'home__modes' },
+          card('daily', '📅', 'Denní výzva', dailyText(), '#/denni'),
           card('relax', '🧸', 'Pohoda', 'Bez prohry, pro nejmenší', '#/pohoda'),
           card('timed', '⏱️', 'Na čas', bestTimed > 0 ? `90 sekund · rekord ${fmt(bestTimed)}` : '90 sekund na co nejvíc bodů', '#/na-cas'),
           card('pets', SKINS.find((s) => s.id === store.get('activeSkin'))?.emoji ?? '🐭', 'Zvířátka', 'Kolečko a nová zvířátka za mince', '#/zviratka'),

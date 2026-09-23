@@ -165,6 +165,34 @@ await wait(500);
   const coins = await api(() => Number(localStorage.getItem('g92:spojovacka:coins') ?? '0'));
   ok('coins earned', coins > 0, String(coins));
 }
+// 7b) daily challenge: same board for everybody, win → streak
+{
+  await page.goto(base + '#/denni');
+  await wait(900);
+  await page.screenshot({ path: path.join(out, 'daily-intro-desktop.png') });
+  const b1 = await api(() => window.__spojovacka.state().board.cells.map((c) => (c.tile ? c.tile.color : 'x')).join(''));
+  await page.getByRole('button', { name: 'Hrát' }).click();
+  await wait(500);
+  for (let i = 0; i < 60; i++) {
+    if (await api(() => window.__spojovacka.ended())) break;
+    await api(() => window.__spojovacka.botMove());
+    await idle();
+  }
+  await page.waitForSelector('.g92-overlay--results', { timeout: 60000 });
+  await wait(1500);
+  await page.screenshot({ path: path.join(out, 'daily-results-desktop.png') });
+  const title = await page.textContent('.g92-overlay--results .g92-overlay__title');
+  if (/splněna/.test(title ?? '')) {
+    const d = await api(() => JSON.parse(localStorage.getItem('g92:spojovacka:daily') ?? '{}'));
+    ok('daily win recorded', d.streak === 1 && d.last?.length === 10, JSON.stringify(d));
+  } else ok('daily played to the end (lost)', true, title);
+  // same board again
+  await page.goto(base + '#/');
+  await page.goto(base + '#/denni');
+  await wait(700);
+  const b2 = await api(() => window.__spojovacka.state().board.cells.map((c) => (c.tile ? c.tile.color : 'x')).join(''));
+  ok('daily board is the same every time', b1 === b2);
+}
 // 8) migration from the original save
 {
   await page.goto(base);

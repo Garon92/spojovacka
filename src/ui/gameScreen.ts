@@ -1,6 +1,6 @@
 import { chooseMove } from '../core/bot';
 import { playBonus, playMove } from '../core/game';
-import { LEVELS, WORLDS, levelById, levelConfig, starsFor, type LevelDef } from '../core/levels';
+import { LEVELS, WORLDS, dailyLevel, dailySeed, levelById, levelConfig, starsFor, type LevelDef } from '../core/levels';
 import { bestHint, findTaps } from '../core/moves';
 import { createRng, randomSeed } from '../core/rng';
 import { createGame, isLost, isWon, type GameState } from '../core/state';
@@ -29,8 +29,11 @@ import {
   MAX_STARS,
   addCoins,
   coinsForScore,
+  dailyState,
+  dayKey,
   levelRecord,
   recordStats,
+  submitDaily,
   store,
   submitLevel,
   totalStars,
@@ -91,6 +94,8 @@ export class GameScreen {
 
   private mode: Mode = 'level';
   private level: LevelDef | null = null;
+  /** day key when playing the daily challenge */
+  private daily: string | null = null;
   private diff: Difficulty = 'normal';
   private state!: GameState;
   private busy = false;
@@ -218,6 +223,7 @@ export class GameScreen {
     const sid = ++this.session;
     this.mode = 'level';
     this.level = level;
+    this.daily = null;
     this.extraBought = 0;
     this.setup(createGame(levelConfig(level), randomSeed()));
     const ok = await this.levelIntro(level);
@@ -227,9 +233,31 @@ export class GameScreen {
     if (level.id === 1) this.scheduleIdle(1800);
   }
 
+  /** daily challenge: a remixed level, same board for everybody today */
+  async startDaily() {
+    const sid = ++this.session;
+    const day = dayKey();
+    const level = dailyLevel(day);
+    this.mode = 'level';
+    this.level = level;
+    this.daily = day;
+    this.extraBought = 0;
+    this.setup(createGame(levelConfig(level), dailySeed(day)));
+    const ok = await this.levelIntro(level);
+    if (!this.active || sid !== this.session) return;
+    if (!ok) return this.nav.go('#/');
+    this.begin();
+  }
+
+  private levelTitle(): string {
+    if (this.daily) return 'Denní výzva';
+    return this.level ? `Úroveň ${this.level.id}` : '';
+  }
+
   async startRelax() {
     const sid = ++this.session;
     this.mode = 'relax';
+    this.daily = null;
     this.level = null;
     const prev = store.get('relaxDiff');
     this.diff = prev;
@@ -263,6 +291,7 @@ export class GameScreen {
   async startTimed(skipIntro = false) {
     const sid = ++this.session;
     this.mode = 'timed';
+    this.daily = null;
     this.level = null;
     let diff = store.get('timedDiff');
     this.diff = diff;
@@ -354,7 +383,7 @@ export class GameScreen {
     this.displayGoals = state.goals.map((g) => ({ ...g }));
     this.displayScore = state.score;
     this.shownScore = state.score;
-    this.view.hintHand = this.mode === 'relax' || (this.mode === 'level' && (this.level?.id ?? 99) <= 3);
+    this.view.hintHand = this.mode === 'relax' || (this.mode === 'level' && !this.daily && (this.level?.id ?? 99) <= 3);
     const theme = this.mode === 'level' ? WORLDS[this.level?.world ?? 0].theme : this.mode;
     this.el.dataset.theme = theme;
     this.el.dataset.mode = this.mode;
@@ -482,7 +511,7 @@ export class GameScreen {
     this.sideInfo.textContent = '';
     this.stageTitle.textContent =
       this.mode === 'level' && this.level
-        ? `${WORLDS[this.level.world].emoji} Úroveň ${this.level.id}`
+        ? `${this.daily ? '📅' : WORLDS[this.level.world].emoji} ${this.levelTitle()}`
         : this.mode === 'timed'
           ? `⏱️ Na čas · ${DIFFICULTIES.find((d) => d.id === this.diff)?.label ?? ''}`
           : '🧸 Pohoda';
@@ -490,7 +519,7 @@ export class GameScreen {
       const w = WORLDS[this.level.world];
       this.sideInfo.append(
         h('p', { class: 'side__eyebrow' }, `${w.emoji} ${w.name}`),
-        h('p', { class: 'side__title' }, `Úroveň ${this.level.id}`),
+        h('p', { class: 'side__title' }, this.levelTitle()),
         h('p', { class: 'side__text' }, 'Čím víc bodů, tím rychleji zvířátko běží.'),
       );
     } else if (this.mode === 'timed') {
@@ -515,22 +544,38 @@ export class GameScreen {
     for (const g of this.state.goals) {
       goals.append(h('li', null, goalIcon(theme, g, 40), h('span', null, goalLabel(g))));
     }
+    const daily = this.daily ? dailyState() : null;
+    const dateTxt = new Date().toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric' });
     const content = h(
       'div',
       { class: 'intro' },
-      h('p', { class: 'intro__world' }, `${w.emoji} ${w.name}`),
+      h('p', { class: 'intro__world' }, daily ? `📅 ${dateTxt} · stejná deska pro všechny` : `${w.emoji} ${w.name}`),
       goals,
       h('p', { class: 'intro__moves' }, h('b', null, String(level.moves)), ' tahů'),
     );
-    if (rec.stars > 0) {
+    if (daily) {
+      content.append(
+        h(
+          'div',
+          { class: 'intro__tip' },
+          h('span', { class: 'intro__daily-ico', 'aria-hidden': 'true' }, daily.doneToday ? '✅' : '🔥'),
+          h(
+            'div',
+            null,
+            h('b', null, daily.doneToday ? 'Dnes už splněno!' : daily.streak > 0 ? `Série ${daily.streak} ${daily.streak === 1 ? 'den' : daily.streak < 5 ? 'dny' : 'dní'} – pokračuj!` : 'Každý den nová výzva'),
+            h('p', null, daily.doneToday ? `Můžeš si ji zahrát znovu a zkusit víc bodů (nejlépe ${fmt(daily.bestScore)}).` : 'Za první dnešní splnění dostaneš 🪙 50 navíc.'),
+          ),
+        ),
+      );
+    } else if (rec.stars > 0) {
       content.append(h('p', { class: 'intro__best', html: `<span class="intro__stars">${[0, 1, 2].map((i) => `<span class="${i < rec.stars ? 'on' : ''}">${UI_ICONS.star}</span>`).join('')}</span> Nejlepší: <b>${fmt(rec.best)}</b>` }));
     }
-    if (level.tip) {
+    if (level.tip && !daily) {
       const tip = TIPS[level.tip];
       content.append(h('div', { class: 'intro__tip' }, h('div', { class: 'intro__tip-pic' }, tip.pic(theme)), h('div', null, h('b', null, tip.title), h('p', null, tip.text))));
     }
     const d = openDialog({
-      title: `Úroveň ${level.id}`,
+      title: this.levelTitle(),
       content,
       className: 'level-intro',
       actions: [
@@ -742,10 +787,10 @@ export class GameScreen {
     }
     this.pauseOverlay = showPause({
       title: 'Pauza',
-      subtitle: this.mode === 'level' && this.level ? `Úroveň ${this.level.id}` : this.mode === 'timed' ? 'Na čas' : 'Pohoda',
+      subtitle: this.mode === 'level' ? this.levelTitle() : this.mode === 'timed' ? 'Na čas' : 'Pohoda',
       stats,
       menuHref: null,
-      menuLabel: this.mode === 'level' ? 'Mapa' : this.mode === 'relax' ? 'Skončit' : 'Konec',
+      menuLabel: this.mode === 'level' ? (this.daily ? 'Konec' : 'Mapa') : this.mode === 'relax' ? 'Skončit' : 'Konec',
       container: this.el,
       ...(extra ? { extra } : {}),
     });
@@ -761,7 +806,7 @@ export class GameScreen {
     } else if (choice === 'restart') {
       this.restart();
     } else {
-      if (this.mode === 'level') this.nav.go('#/mapa');
+      if (this.mode === 'level') this.nav.go(this.daily ? '#/' : '#/mapa');
       else if (this.mode === 'relax') void this.endRelax();
       else this.nav.go('#/');
     }
@@ -770,7 +815,7 @@ export class GameScreen {
   private restart() {
     if (this.mode === 'level' && this.level) {
       this.extraBought = 0;
-      this.setup(createGame(levelConfig(this.level), randomSeed()));
+      this.setup(createGame(levelConfig(this.level), this.daily ? dailySeed(this.daily) : randomSeed()));
       this.begin();
     } else if (this.mode === 'relax') {
       this.setup(createGame({ layout: PLAIN8, colors: DIFF_COLORS[this.diff], moves: null, goals: [] }, randomSeed()));
@@ -846,6 +891,7 @@ export class GameScreen {
     }
     const score = this.state.score;
     const stars = starsFor(level, true, score);
+    if (this.daily) return this.winDaily(score, stars);
     const prev = levelRecord(level.id);
     const { newStars } = submitLevel(level.id, stars, score);
     const coins = coinsForScore(score) + newStars * 10;
@@ -887,6 +933,37 @@ export class GameScreen {
     else this.nav.go('#/mapa');
   }
 
+  private async winDaily(score: number, stars: number) {
+    const prevBest = dailyState().bestScore;
+    const { first, streak } = submitDaily(score);
+    const coins = coinsForScore(score) + (first ? 50 : 0);
+    addCoins(coins);
+    this.commitGame(true);
+    const choice = await showResults({
+      title: 'Denní výzva splněna!',
+      subtitle: first ? `🔥 Série ${streak} ${streak === 1 ? 'den' : streak < 5 ? 'dny' : 'dní'}. Zítra tě čeká nová výzva!` : 'Zítra tě čeká nová výzva!',
+      score,
+      best: first ? null : Math.max(prevBest, score),
+      isNewBest: !first && score > prevBest,
+      stars,
+      stats: [
+        { label: 'Mince', value: `+${coins}`, icon: '🪙' },
+        { label: 'Série', value: `${streak} 🔥` },
+        { label: 'Nejdelší řetěz', value: `×${this.state.stats.maxCascade}` },
+      ],
+      againLabel: 'Hlavní nabídka',
+      againIcon: UI_ICONS.home,
+      actions: [{ label: 'Znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
+      menuHref: null,
+      menuLabel: 'Mapa úrovní',
+      container: this.el,
+    });
+    if (!this.active) return;
+    if (choice === 'again') this.nav.go('#/');
+    else if (choice === 'retry') this.nav.go('#/denni', true);
+    else this.nav.go('#/mapa');
+  }
+
   private async loseLevel() {
     const level = this.level!;
     this.ended = true;
@@ -905,7 +982,7 @@ export class GameScreen {
       againLabel: 'Zkusit znovu',
       actions,
       menuHref: null,
-      menuLabel: 'Mapa',
+      menuLabel: this.daily ? 'Hlavní nabídka' : 'Mapa',
       container: this.el,
     });
     if (!this.active) return;
@@ -919,8 +996,8 @@ export class GameScreen {
       this.scheduleIdle();
       return;
     }
-    if (choice === 'again') this.nav.go(`#/uroven/${level.id}`, true);
-    else this.nav.go('#/mapa');
+    if (choice === 'again') this.nav.go(this.daily ? '#/denni' : `#/uroven/${level.id}`, true);
+    else this.nav.go(this.daily ? '#/' : '#/mapa');
   }
 
   private async endTimed() {

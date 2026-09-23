@@ -1,4 +1,5 @@
 import balance from './balance.json';
+import { createRng } from './rng';
 import type { ChickConfig, GameConfig, GoalDef } from './types';
 
 /** Short tutorial tips shown in the level intro (see ui/tips.ts). */
@@ -420,4 +421,35 @@ export function starsFor(l: LevelDef, won: boolean, score: number): number {
   if (score >= l.stars[1]) return 3;
   if (score >= l.stars[0]) return 2;
   return 1;
+}
+
+/** stable 32-bit hash of a string (FNV-1a) */
+export function hashString(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/**
+ * Daily challenge: a remix of one of the regular levels (not the tutorial ones) with different
+ * goal colors and slightly bigger goals. Same for everybody on the same day.
+ */
+export function dailyLevel(dayKey: string): LevelDef {
+  const rng = createRng(hashString(`daily:${dayKey}`));
+  const pool = LEVELS.filter((l) => l.id > 5);
+  const base = pool[rng.int(pool.length)];
+  const used = new Set<number>();
+  const goals = base.goals.map((g) => {
+    if (g.type !== 'color') return g;
+    let c = rng.int(base.colors);
+    while (used.has(c)) c = (c + 1) % base.colors;
+    used.add(c);
+    return { ...g, color: c, count: Math.round((g.count * 1.1) / 5) * 5 };
+  });
+  return { ...base, goals, moves: base.moves + 2, tip: undefined };
+}
+
+/** seed of the daily board (everybody gets the same starting board) */
+export function dailySeed(dayKey: string): number {
+  return hashString(`board:${dayKey}`);
 }

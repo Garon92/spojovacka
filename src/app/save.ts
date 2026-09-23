@@ -5,6 +5,14 @@ import { SKINS } from '../render/runner';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
+export interface DailyRecord {
+  /** last day the challenge was won (YYYY-MM-DD) */
+  last: string;
+  streak: number;
+  best: number;
+  bestScore: number;
+}
+
 export interface LevelRecord {
   stars: number;
   best: number;
@@ -59,6 +67,7 @@ export const store = createStore('spojovacka', {
     stats: { ...EMPTY_STATS } as Stats,
     seenTips: [] as string[],
     achievements: [] as string[],
+    daily: { last: '', streak: 0, best: 0, bestScore: 0 } as DailyRecord,
   },
   migrate(from, m) {
     if (from < 2) {
@@ -133,4 +142,30 @@ export function recordStats(p: Partial<Stats>) {
 /** coins for a score (all modes) */
 export function coinsForScore(score: number): number {
   return Math.floor(score / 300);
+}
+
+/** local date as YYYY-MM-DD */
+export function dayKey(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function dailyState(): DailyRecord & { doneToday: boolean; alive: boolean } {
+  const r: DailyRecord = Object.assign({ last: '', streak: 0, best: 0, bestScore: 0 }, store.get('daily'));
+  const today = dayKey();
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yesterday = dayKey(y);
+  const doneToday = r.last === today;
+  const alive = doneToday || r.last === yesterday;
+  return { ...r, streak: alive ? r.streak : 0, doneToday, alive };
+}
+
+/** record a won daily challenge; returns whether it was the first win today */
+export function submitDaily(score: number): { first: boolean; streak: number } {
+  const d = dailyState();
+  const today = dayKey();
+  const first = !d.doneToday;
+  const streak = first ? (d.alive ? d.streak + 1 : 1) : d.streak;
+  store.set('daily', { last: today, streak, best: Math.max(d.best, streak), bestScore: first ? score : Math.max(d.bestScore, score) });
+  return { first, streak };
 }

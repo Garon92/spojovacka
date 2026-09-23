@@ -83,6 +83,9 @@ function route() {
     case 'na-cas':
       show('game');
       return void game.startTimed();
+    case 'denni':
+      show('game');
+      return void game.startDaily();
     case 'uroven': {
       const id = Number(b);
       if (!LEVELS.some((l) => l.id === id) || !isUnlocked(id)) return nav.go('#/mapa');

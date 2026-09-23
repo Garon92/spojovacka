@@ -1,5 +1,5 @@
 import { LEVELS } from '../core/levels';
-import { getStats, levelRecord, store } from './save';
+import { dailyState, getStats, levelRecord, store } from './save';
 
 export interface Achievement {
   id: string;
@@ -33,6 +33,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'timed', emoji: '⏱️', name: 'Rychlé ruce', desc: 'Na čas (střední) nasbírej 10 000 bodů.', progress: () => [Math.min(10000, store.get('timedBest').normal), 10000] },
   { id: 'relax', emoji: '🧸', name: 'Pohodář', desc: 'V Pohodě nasbírej 20 000 bodů v jedné hře.', progress: () => [Math.min(20000, store.get('relaxBest')), 20000] },
   { id: 'pets', emoji: '🐹', name: 'Chovatel', desc: 'Měj aspoň 4 zvířátka.', progress: () => [Math.min(4, store.get('ownedSkins').length), 4] },
+  { id: 'daily1', emoji: '📅', name: 'Denní hráč', desc: 'Splň denní výzvu.', progress: () => [Math.min(1, dailyState().best), 1] },
+  { id: 'daily7', emoji: '🔥', name: 'Týdenní série', desc: 'Splň denní výzvu 7 dní po sobě.', progress: () => [Math.min(7, dailyState().best), 7] },
   { id: 'tiles', emoji: '💎', name: 'Sběratel', desc: 'Spoj celkem 5 000 dílků.', progress: () => [Math.min(5000, getStats().tiles), 5000] },
 ];
 
