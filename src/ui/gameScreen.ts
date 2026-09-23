@@ -45,9 +45,9 @@ const DIFF_COLORS: Record<Difficulty, number> = { easy: 4, normal: 5, hard: 6 };
 /** score thresholds (2★, 3★ are the last two; 1★ = first) for the timed mode */
 export const TIMED_STARS: Record<Difficulty, [number, number, number]> = {
   // from scripts/timed.ts (bot, ~24 moves in 90 s), slightly lowered for humans
-  easy: [12000, 30000, 50000],
-  normal: [3500, 8500, 14000],
-  hard: [1800, 4000, 6500],
+  easy: [13000, 33000, 55000],
+  normal: [4000, 9500, 15500],
+  hard: [2000, 4500, 7200],
 };
 const EXTRA_MOVES = 5;
 const EXTRA_COST = 30;
@@ -264,7 +264,7 @@ export class GameScreen {
       const res = await showStart({
         appId: 'spojovacka',
         title: 'Na čas',
-        subtitle: `${TIMED_SECONDS} sekund – kolik bodů nasbíráš? Rychlé řetězy se vyplatí.`,
+        subtitle: `${TIMED_SECONDS} sekund – kolik bodů nasbíráš? Každý odpálený speciál přidá sekundu.`,
         icon: '⏱️',
         difficulties: DIFFICULTIES.map((d) => ({ ...d, hint: `${d.hint} · rekord ${fmt(best[d.id as Difficulty])}` })),
         difficulty: diff,
@@ -272,7 +272,7 @@ export class GameScreen {
         howTo: [
           { icon: '⏱️', text: `Máš ${TIMED_SECONDS} sekund` },
           { icon: '💥', text: 'Řetězy násobí body' },
-          { icon: '🌈', text: 'Speciály = hodně bodů' },
+          { icon: '🚀', text: 'Každý speciál = +1 s' },
         ],
         container: this.el,
         backdrop: 'blur',
@@ -558,6 +558,7 @@ export class GameScreen {
     this.busy = true;
     this.displayGoals = this.state.goals.map((g) => ({ ...g }));
     this.displayScore = this.state.score;
+    const specialsBefore = this.state.stats.specialsUsed;
     const res = playMove(this.state, m);
     if (!res.valid) {
       if (res.steps.length) await this.view.play(res.steps);
@@ -566,6 +567,14 @@ export class GameScreen {
       return false;
     }
     if (m.type === 'swap' && this.isComboSwap(res.steps)) this.callout('Kombo!', 4);
+    // timed mode: every special that goes off adds a second
+    if (this.mode === 'timed' && this.timeLeft > 0) {
+      const bonus = Math.min(5, this.state.stats.specialsUsed - specialsBefore);
+      if (bonus > 0) {
+        this.timeLeft += bonus;
+        this.flashTime(`+${bonus} s`);
+      }
+    }
     this.renderHud();
     await this.view.play(res.steps);
     if (!this.active) return true;
@@ -646,6 +655,12 @@ export class GameScreen {
         this.callout('Bonus za tahy!', 5);
         break;
     }
+  }
+
+  private flashTime(text: string) {
+    const el = h('span', { class: 'hud__plus' }, text);
+    this.hudMoves.parentElement!.append(el);
+    setTimeout(() => el.remove(), 1200);
   }
 
   private callout(text: string, level: number, variant = '') {
