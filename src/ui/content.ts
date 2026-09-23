@@ -168,7 +168,7 @@ export function howToContent(theme: PieceTheme): HTMLElement {
       row(h('span', { class: 'howto__emoji' }, '🖱️'), 'Myš a dotyk: táhni, nebo klikni na dva dílky. Když chvíli nehraješ, hra ti poradí.'),
       row(
         h('span', { class: 'howto__keys', html: '<kbd class="g92-kbd">←</kbd><kbd class="g92-kbd">→</kbd><kbd class="g92-kbd">↑</kbd><kbd class="g92-kbd">↓</kbd>' }),
-        'Klávesnice: šipky posouvají kurzor, Enter/mezerník vybere dílek, šipka ho pak prohodí. H = nápověda, P nebo Esc = pauza.',
+        'Klávesnice: šipky posouvají kurzor, Enter/mezerník vybere dílek, šipka ho pak prohodí. H = nápověda, P nebo Esc = pauza, M = zvuk.',
       ),
     ),
   );

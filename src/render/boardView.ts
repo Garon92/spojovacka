@@ -96,6 +96,8 @@ export class BoardView {
   hint: { a: Pos; b: Pos } | null = null;
   private hintStart = 0;
   drag: { pos: Pos; dx: number; dy: number } | null = null;
+  /** show a pointing hand with the hint (youngest players / first levels) */
+  hintHand = false;
   /** dims the board (e.g. no moves while paused) */
   dim = 0;
 
@@ -411,11 +413,14 @@ export class BoardView {
     if (hintOn && this.hint) {
       const pulse = 0.5 + 0.5 * Math.sin((now - this.hintStart) / 180);
       ctx.save();
-      ctx.fillStyle = `rgba(255,255,255,${0.25 + pulse * 0.35})`;
+      ctx.fillStyle = `rgba(255,255,255,${0.2 + pulse * 0.3})`;
+      ctx.strokeStyle = `rgba(245,183,0,${0.55 + pulse * 0.45})`;
+      ctx.lineWidth = Math.max(2, s * 0.06);
       for (const p of [this.hint.a, this.hint.b]) {
         ctx.beginPath();
-        ctx.roundRect(p.x * s + s * 0.04, p.y * s + s * 0.04, s * 0.92, s * 0.92, s * 0.2);
+        ctx.roundRect(p.x * s + s * 0.05, p.y * s + s * 0.05, s * 0.9, s * 0.9, s * 0.2);
         ctx.fill();
+        ctx.stroke();
       }
       ctx.restore();
     }
@@ -480,6 +485,20 @@ export class BoardView {
       ctx.restore();
     }
     ctx.restore();
+
+    // pointing hand showing the hinted swap
+    if (hintOn && this.hint && this.hintHand) {
+      const { a, b } = this.hint;
+      const cyc = ((now - this.hintStart) % 1400) / 1400;
+      const k = cyc < 0.15 ? 0 : cyc < 0.6 ? ease.inOutQuad((cyc - 0.15) / 0.45) : 1;
+      const alpha = cyc > 0.85 ? 1 - (cyc - 0.85) / 0.15 : Math.min(1, cyc / 0.1);
+      const hx = lerp(a.x, b.x, k) + 0.62;
+      const hy = lerp(a.y, b.y, k) + 0.78;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(sp.emoji('👆'), (hx - 0.45) * s, (hy - 0.45) * s, s * 0.9, s * 0.9);
+      ctx.restore();
+    }
 
     // chains on top of tiles
     for (let i = 0; i < this.cells.length; i++) {

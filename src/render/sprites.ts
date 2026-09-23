@@ -518,6 +518,19 @@ export class SpriteCache {
   chain() {
     return this.cached('chain', (ctx, s) => drawChain(ctx, s));
   }
+  /** an emoji rendered once */
+  emoji(ch: string) {
+    return this.cached(`emoji${ch}`, (ctx, s) => {
+      ctx.font = `${Math.round(s * 0.8)}px ${EMOJI_FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = s * 0.08;
+      ctx.shadowOffsetY = s * 0.04;
+      ctx.fillText(ch, s / 2, s / 2 + s * 0.05);
+    });
+  }
+
   /** soft round glow used by particles */
   glow(color: string) {
     return this.cached(`glow${color}`, (ctx, s) => {

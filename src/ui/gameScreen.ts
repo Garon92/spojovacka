@@ -354,6 +354,7 @@ export class GameScreen {
     this.displayGoals = state.goals.map((g) => ({ ...g }));
     this.displayScore = state.score;
     this.shownScore = state.score;
+    this.view.hintHand = this.mode === 'relax' || (this.mode === 'level' && (this.level?.id ?? 99) <= 3);
     const theme = this.mode === 'level' ? WORLDS[this.level?.world ?? 0].theme : this.mode;
     this.el.dataset.theme = theme;
     this.el.dataset.mode = this.mode;

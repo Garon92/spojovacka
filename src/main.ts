@@ -1,6 +1,6 @@
 import './kit/kit.css';
 import './style.css';
-import { UI_ICONS, confirmDialog, h, openSettingsDialog, toast } from './kit';
+import { UI_ICONS, confirmDialog, getSettings, h, openSettingsDialog, setSettings, toast } from './kit';
 import { sfx as gameSfx } from './audio/sfx';
 import { LEVELS } from './core/levels';
 import { isUnlocked, store } from './app/save';
@@ -156,6 +156,18 @@ function settingsExtra(): HTMLElement {
   wrap.append(reset);
   return wrap;
 }
+
+/* ---------------- keyboard: M = mute ---------------- */
+
+window.addEventListener('keydown', (e) => {
+  const t = e.target as HTMLElement | null;
+  if (e.ctrlKey || e.metaKey || e.altKey || (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (e.key === 'm' || e.key === 'M') {
+    const on = !getSettings().sound;
+    setSettings({ sound: on });
+    toast(on ? 'Zvuk zapnutý' : 'Zvuk vypnutý', { duration: 1500 });
+  }
+});
 
 /* ---------------- audio unlock ---------------- */
 
