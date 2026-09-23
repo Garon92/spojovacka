@@ -241,13 +241,6 @@ export class BoardView {
     return { x: r.left + (this.ox + (p.x + 0.5) * this.cell) * k, y: r.top + (this.oy + (p.y + 0.5) * this.cell) * k };
   }
 
-  /** Client rect of the board area (for placing DOM callouts). */
-  boardRectClient(): DOMRect {
-    const r = this.canvas.getBoundingClientRect();
-    const k = r.width / this.canvas.width;
-    return new DOMRect(r.left + this.ox * k, r.top + this.oy * k, this.w * this.cell * k, this.h * this.cell * k);
-  }
-
   /* ---------------- loop ---------------- */
 
   start() {
@@ -685,7 +678,6 @@ export class BoardView {
     this.cascade = st.cascade;
     const now = performance.now();
     const T = this.ms(UNIT);
-    const s = this.cell;
     if (st.cascade >= 2) this.cb.event({ type: 'cascade', n: st.cascade });
     if (st.groups.length > 0) this.cb.sfx('match', { pitch: Math.min(9, st.cascade - 1 + (st.groups.some((g) => g >= 5) ? 1 : 0)) });
 
@@ -877,7 +869,6 @@ export class BoardView {
         },
       });
     }
-    void s;
     await this.anim.until(now + st.duration * T + this.ms(240));
   }
 

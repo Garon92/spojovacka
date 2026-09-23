@@ -165,7 +165,6 @@ interface Phase {
   adjHit: Set<number>;
   scheduled: Set<number>;
   reserved: Set<number>;
-  popupValue: number[];
 }
 
 function push(ph: Phase, e: Omit<Ev, 'seq'>) {
@@ -177,7 +176,6 @@ function push(ph: Phase, e: Omit<Ev, 'seq'>) {
 
 function popup(ph: Phase, x: number, y: number, t: number): number {
   ph.step.popups.push({ x, y, t, value: 0 });
-  ph.popupValue.push(0);
   return ph.step.popups.length - 1;
 }
 
@@ -443,7 +441,6 @@ function runPhase(s: GameState, groups: MatchGroup[], actions: InitialAction[], 
     adjHit: new Set(),
     scheduled: new Set(),
     reserved: new Set(),
-    popupValue: [],
   };
   const b = s.board;
 

@@ -647,8 +647,6 @@ export class GameScreen {
     this.view.sync(this.state);
     this.syncDisplay();
     this.busy = false;
-    const st = this.state.stats;
-    void st;
     void this.afterMove();
     return true;
   }
