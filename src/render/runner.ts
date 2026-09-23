@@ -357,9 +357,9 @@ export class Runner {
     ctx.fill();
     // animal at the bottom of the wheel
     const phase = this.t * (10 + this.shown * 14);
-    ctx.translate(0, R * 0.62);
+    ctx.translate(0, R * 0.72);
     ctx.rotate(Math.sin(phase) * 0.04);
-    drawAnimal(ctx, this.skin, size * 0.17, phase);
+    drawAnimal(ctx, this.skin, size * 0.25, phase);
     ctx.restore();
   }
 }
@@ -371,7 +371,8 @@ export function animalPortrait(skin: string, cssSize: number): HTMLCanvasElement
   c.width = c.height = Math.round(cssSize * dpr);
   c.style.width = c.style.height = `${cssSize}px`;
   const ctx = c.getContext('2d')!;
-  ctx.translate(c.width * 0.52, c.height * 0.52);
-  drawAnimal(ctx, skin, c.width * 0.5, 0.8);
+  const u = c.width / 13;
+  ctx.translate(c.width / 2 + 0.85 * u, c.height / 2 + 0.3 * u);
+  drawAnimal(ctx, skin, u * 10, 0.8);
   return c;
 }

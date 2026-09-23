@@ -1038,14 +1038,14 @@ export class BoardView {
           const x1 = (tp.x + 0.5) * s;
           const y1 = (tp.y + 0.5) * s;
           ctx.strokeStyle = color;
-          ctx.globalAlpha = a;
-          ctx.lineWidth = s * 0.08;
+          ctx.globalAlpha = a * 0.8;
+          ctx.lineWidth = s * 0.06;
           ctx.beginPath();
           ctx.moveTo(x0, y0);
           const segs = 6;
           for (let i = 1; i < segs; i++) {
             const f = i / segs;
-            const j = Math.sin(seeds[k] + i * 2.1 + now * 0.03) * s * 0.18;
+            const j = Math.sin(seeds[k] + i * 2.1 + now * 0.03) * s * 0.1;
             ctx.lineTo(lerp(x0, x1, f) + j, lerp(y0, y1, f) - j);
           }
           ctx.lineTo(x1, y1);
@@ -1115,7 +1115,7 @@ export class BoardView {
         ctx.save();
         ctx.globalAlpha = p < 0.7 ? 1 : 1 - (p - 0.7) / 0.3;
         const sc = p < 0.15 ? ease.outBack(p / 0.15) : 1;
-        ctx.translate(x * s, (y - p * 0.8) * s);
+        ctx.translate(clamp(x, 0.8, this.w - 0.8) * s, (Math.max(0.55, y) - p * 0.8) * s);
         ctx.scale(sc, sc);
         ctx.font = `900 ${Math.round(size)}px ${font}`;
         ctx.textAlign = 'center';

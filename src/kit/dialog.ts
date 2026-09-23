@@ -145,6 +145,11 @@ export function openDialog(opts: DialogOptions): DialogHandle {
 
   document.body.append(el);
   el.showModal();
+  // no explicit autofocus → focus the dialog itself (not the × button, which would show a focus ring)
+  if (!el.querySelector('[autofocus]')) {
+    el.tabIndex = -1;
+    el.focus({ preventScroll: true });
+  }
   opts.onOpen?.(el);
   return { el, body, close, closed };
 }

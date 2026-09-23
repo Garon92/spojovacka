@@ -44,9 +44,10 @@ const TIMED_SECONDS = 90;
 const DIFF_COLORS: Record<Difficulty, number> = { easy: 4, normal: 5, hard: 6 };
 /** score thresholds (2★, 3★ are the last two; 1★ = first) for the timed mode */
 export const TIMED_STARS: Record<Difficulty, [number, number, number]> = {
-  easy: [4000, 9000, 15000],
-  normal: [3000, 7000, 11000],
-  hard: [2500, 5500, 9000],
+  // from scripts/timed.ts (bot, ~24 moves in 90 s), slightly lowered for humans
+  easy: [12000, 30000, 50000],
+  normal: [3500, 8500, 14000],
+  hard: [1800, 4000, 6500],
 };
 const EXTRA_MOVES = 5;
 const EXTRA_COST = 30;
@@ -456,7 +457,12 @@ export class GameScreen {
         h('p', { class: 'side__text' }, 'Čím víc bodů, tím rychleji zvířátko běží.'),
       );
     } else if (this.mode === 'timed') {
-      this.sideInfo.append(h('p', { class: 'side__eyebrow' }, '⏱️ Na čas'), h('p', { class: 'side__title' }, `Rekord ${fmt(store.get('timedBest')[this.diff])}`), h('p', { class: 'side__text' }, 'Rychlé řetězy a speciály nesou nejvíc bodů.'));
+      const best = store.get('timedBest')[this.diff];
+      this.sideInfo.append(
+        h('p', { class: 'side__eyebrow' }, `⏱️ Na čas · ${DIFFICULTIES.find((d) => d.id === this.diff)?.label ?? ''}`),
+        h('p', { class: 'side__title' }, best > 0 ? `Rekord ${fmt(best)}` : 'Zatím bez rekordu'),
+        h('p', { class: 'side__text' }, 'Rychlé řetězy a speciály nesou nejvíc bodů.'),
+      );
     } else {
       this.sideInfo.append(h('p', { class: 'side__eyebrow' }, '🧸 Pohoda'), h('p', { class: 'side__title' }, 'Hraj si, jak dlouho chceš'), h('p', { class: 'side__text' }, 'Zvířátko v kolečku běží rychleji, čím víc toho spojíš.'));
     }
@@ -785,7 +791,7 @@ export class GameScreen {
     recordStats({ wins: 1, tiles: this.state.stats.cleared, specials: this.state.stats.specialsUsed });
     this.reportActivity();
     const isLast = level.id >= LEVELS.length;
-    const choice = await showResults({
+    const results = showResults({
       title: `Úroveň ${level.id} splněna!`,
       subtitle: stars === 3 ? 'Všechny tři hvězdy – paráda!' : stars === 2 ? 'Pro třetí hvězdu zkus víc bodů.' : 'Víc bodů = víc hvězd.',
       score,
@@ -803,6 +809,10 @@ export class GameScreen {
       menuLabel: 'Mapa',
       container: this.el,
     });
+    // kit shows a "restart" icon on the primary button – here it means "next level"
+    const primaryIcon = results.el.querySelector('[data-primary] svg');
+    if (primaryIcon) primaryIcon.outerHTML = isLast ? UI_ICONS.grid : UI_ICONS.arrowRight;
+    const choice = await results;
     if (!this.active) return;
     if (choice === 'again') this.nav.go(isLast ? '#/mapa' : `#/uroven/${level.id + 1}`);
     else if (choice === 'retry') this.nav.go(`#/uroven/${level.id}`, true);

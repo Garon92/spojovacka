@@ -1249,3 +1249,26 @@ html[data-motion='reduce'] .callout {
   justify-self: start;
   color: var(--g92-danger);
 }
+
+@media (max-width: 440px) {
+  .screen__head .pill {
+    padding: 2px 8px;
+    min-height: 32px;
+    font-size: var(--g92-fs-sm);
+  }
+  .screen__head .pill__of {
+    display: none;
+  }
+  .screen__title {
+    font-size: var(--g92-fs-xl);
+  }
+  .modecard {
+    padding: var(--g92-space-3);
+    gap: var(--g92-space-2);
+  }
+  .modecard__ico {
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+  }
+}

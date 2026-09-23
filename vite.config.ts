@@ -1,7 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { g92Pwa } from './src/kit/pwa';
+import { g92Pwa } from './src/kit/pwa.ts';
 
 export default defineConfig({
   base: '/spojovacka/',

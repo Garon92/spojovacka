@@ -1,50 +1,65 @@
 # Spojovačka
 
-Malá browser hra ve stylu **match‑3**: **prohazuješ dva sousední** tvary a pokud vznikne **vodorovná nebo svislá řada** (min 3), provede se to (jinak se tah vrátí).
+Barevná hra typu **match-3** pro celou rodinu: prohazuj sousední dílky, skládej řady tří a víc stejných,
+vyráběj rakety, bomby, duhy a motýly a plň úkoly ve **40 úrovních** ve čtyřech světech.
+Součást rozcestníku [garon92.github.io](https://garon92.github.io/) (sdílený design kit g92).
 
-## Ovládání
+## Režimy
 
-- **Přetáhni dílek** na **sousední** (nahoru/dolů/vlevo/vpravo) → dílky se **prohodí**.
-- Pokud po prohození **nevznikne řada 3+**, tah se **automaticky vrátí**.
-- **Skóre** se počítá **za každý zničený tvar** (včetně výbuchů).
-- **Nová hra**: tlačítko *Nová hra* nahoře.
+- **Úrovně** – mapa se 40 úrovněmi (Rozkvetlá louka, Tajemný les, Zamrzlé jezero, Hvězdná noc). Každá úroveň má
+  úkoly a omezený počet tahů, za body 1–3 hvězdy. Zbylé tahy se na konci promění v rakety (bonus).
+- **Pohoda** – pro nejmenší: bez tahů, bez času, bez prohry. Na výběr 4, 5 nebo 6 barev.
+- **Na čas** – 90 sekund, co nejvíc bodů, rekord pro každou obtížnost.
+- **Zvířátka** – kolečko se zvířátkem z původní hry (běží tím rychleji, čím víc bodů máš). Za mince 🪙 z her si koupíš
+  další zvířátka (myška, potkan, křeček, pejsek, kočička, zajíček, dinosaurus, liška).
 
-## Power-upy
+## Pravidla
 
-- **4 v řadě** → **🚀 raketa**
-  - Aktivace: **klik** na raketu, nebo **táhni o 1 políčko vedle** (výbuch se přesune).
-  - Efekt: výbuch ve tvaru **“+”** (v rámci 3×3; střed + 4 sousedi).
-- **5+ v řadě** → **💣 bomba**
-  - Aktivace: **klik** na bombu.
-  - Efekt: výbuch **kruhem** o **průměru 5** (radius 2).
+- Přetáhni dílek na souseda (nebo klepni na dva sousedy za sebou). Tři a víc stejných v řadě zmizí,
+  nad nimi se dílky sesypou a doplní nové – vznikají řetězy s násobičem bodů.
+- Každá barva má vlastní tvar (srdíčko, kolečko, hvězdička, trojúhelník, kosočtverec, čtvereček) – hratelné i pro barvoslepé.
 
-## Vzhled tvarů
+| tvar spojení | speciál | co udělá |
+|---|---|---|
+| 4 v řadě | 🚀 raketa | vyčistí celý řádek nebo sloupec |
+| L nebo T | 💣 bomba | výbuch kolem sebe (kruh o průměru 5) |
+| 5 v řadě | 🌈 duha | prohozená s dílkem odstraní všechny dílky té barvy |
+| čtverec 2×2 | 🦋 motýl | vyčistí „+“ kolem sebe a odletí k překážce/úkolu |
 
-V HUDu pod herní plochou jde přepínat:
+Speciál se odpálí klepnutím nebo prohozením (stojí tah). **Komba** (prohoď dva speciály): raketa+raketa = kříž,
+raketa+bomba = 3 řádky a 3 sloupce, bomba+bomba = obří výbuch, duha+speciál = všechny dílky té barvy se promění,
+duha+duha = celá deska, motýl+raketa/bomba = motýl speciál odnese.
 
-- **Kuličky** (default)
-- **Dino**
-- **Diamanty**
+**Překážky a úkoly:** led (1–2 vrstvy), bedny (1–3 zásahy), řetězy, díry v desce, kuřátka, která je potřeba dostat dolů,
+sbírání barev, body, odpálení speciálů.
 
-## Kolečko se zvířetem + skiny
+**Ovládání:** myš, dotyk i klávesnice (šipky = kurzor, Enter/mezerník = výběr, šipka = prohození, H = nápověda,
+P/Esc = pauza). Když chvíli nehraješ, hra sama ukáže tah. Když na desce žádný tah není, dílky se samy zamíchají.
 
-Vpravo je “kolečko”, ve kterém běhá zvíře:
+## Vývoj
 
-- **Rychlost roste se skóre** (asymptoticky, 100% nejde dosáhnout).
-- Skins (např. **potkan/pes/dinosaurus**) lze **koupit za skóre**.
-- **Nákup skina resetuje skóre** (a tím i rychlost).
+```bash
+npm install
+npm run dev        # http://localhost:5177/spojovacka/
+npm run test       # Vitest – herní logika (shody, speciály, gravitace, míchání, cíle…)
+npm run typecheck
+npm run build      # dist/ (PWA, funguje offline)
+npm run balance    # simulace botem → počty tahů a hranice hvězd (src/core/balance.json)
+```
 
-## Zvuky
+Stack: Vite + TypeScript (strict), bez frameworku, canvas 2D, `vite-plugin-pwa`, Vitest.
 
-Hra má jednoduché zvukové efekty (WebAudio) a dají se vypnout přepínačem **Zvuk**.
+- `src/core/` – čistá herní logika bez DOM (deska, shody, speciály, gravitace, míchání, cíle, úrovně, bot).
+  `playMove()` vrací seznam kroků, které renderer jen přehrává.
+- `src/render/` – canvas renderer, sprity dílků, částice, efekty, kolečko se zvířátkem.
+- `src/input/` – tažení, klepání, klávesnice. `src/ui/` – obrazovky a HUD. `src/audio/` – syntetizované zvuky.
+- `src/kit/` – sdílený g92 kit (vendorovaná kopie z `menu/kit`, needitovat – `bash ../menu/kit/sync.sh spojovacka`).
+- `scripts/e2e-*.mjs` – headless kontrola (screenshoty, skutečné tahy myší/klávesnicí, dohrání úrovně).
 
-## GitHub Pages
+Postup se ukládá do `localStorage` (`g92:spojovacka:*`); starý záznam z původní verze (`spojovacka:v1` –
+koupená zvířátka, vzhled dílků) se automaticky převede.
 
-Repo je statické (jen `index.html` + JS/CSS). Pro GitHub Pages:
+## Nasazení
 
-1. **Settings → Pages**
-2. **Source**: *Deploy from a branch*
-3. **Branch**: `main`, **Folder**: `/(root)`
-
-
-
+GitHub Actions (`.github/workflows/deploy.yml`): typecheck → testy → build → GitHub Pages.
+V nastavení repozitáře musí být **Settings → Pages → Source: GitHub Actions**.

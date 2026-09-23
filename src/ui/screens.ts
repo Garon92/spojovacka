@@ -75,7 +75,7 @@ export class HomeScreen {
   }
 
   focus() {
-    this.el.querySelector<HTMLElement>('[data-primary]')?.focus({ preventScroll: true });
+    /* keep focus on the page; the big Hrát button is first in tab order */
   }
 }
 
@@ -145,7 +145,6 @@ export class MapScreen {
   focus() {
     const cur = this.el.querySelector<HTMLElement>('.lvl.is-current') ?? this.el.querySelector<HTMLElement>('.lvl:not(.is-locked)');
     cur?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
-    cur?.focus({ preventScroll: true });
   }
 }
 
@@ -232,7 +231,7 @@ export class PetsScreen {
     this.runner?.stop();
   }
   focus() {
-    this.el.querySelector<HTMLElement>('.screen__head button')?.focus({ preventScroll: true });
+    /* nothing – avoid a focus ring on load */
   }
 }
 

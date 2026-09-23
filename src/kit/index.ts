@@ -79,3 +79,4 @@ export { appIconSvg, shade } from './apps';
 export { createLoop, type Loop, type LoopOptions } from './loop';
 export { fitCanvas, type CanvasView, type FitCanvasOptions } from './canvas';
 export { createDaily, dayKey, type Daily, type DailyData, type DailyRecordResult } from './streak';
+export { setHelp, getHelp, showHelp, type HelpContent } from './help';

@@ -123,7 +123,7 @@ const W1: Def[] = [
     moves: 22,
     layout: ['11....11', '1......1', '........', '........', '........', '........', '1......1', '11....11'],
     goals: [
-      { type: 'special', special: 'butterfly', count: 3 },
+      { type: 'special', special: 'butterfly', count: 2 },
       { type: 'ice' },
     ],
     stars: [3000, 4500],

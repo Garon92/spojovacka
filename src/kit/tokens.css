@@ -102,6 +102,13 @@
   --g92-gold-soft: #ffe58a;
 }
 
+/* Landscape phones: slimmer appbar (buttons stay 44 px) so games get more room */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --g92-appbar-h: 48px;
+  }
+}
+
 /* ==========================================================================
    Light theme (default)
    ========================================================================== */

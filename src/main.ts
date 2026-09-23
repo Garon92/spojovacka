@@ -91,7 +91,8 @@ function route() {
 /* ---------------- appbar: help + app specific settings ---------------- */
 
 const appbar = document.querySelector('g92-appbar')!;
-appbar.addEventListener('g92-help', () => {
+appbar.addEventListener('g92-help', (e) => {
+  e.preventDefault(); // our own illustrated help instead of the kit's default
   if (current === 'game') void game.pause();
   void GameScreen.howTo();
 });

@@ -74,7 +74,9 @@ for (const l of LEVELS) {
   for (let g = 0; g < GAMES; g++) need.push(movesNeeded(l, 1000 + g * 31 + l.id));
   need.sort((a, b) => a - b);
   const target = targetWinRate(l);
-  let moves = Math.max(10, Math.min(45, pct(need, target) + 2));
+  // generous percentile for the target win rate, but cut long unlucky tails (median × 1.7)
+  const p50 = pct(need, 0.5);
+  let moves = Math.max(10, Math.min(45, pct(need, target) + 2, Math.round(p50 * 1.7) + 3));
   let wins: number[] = [];
   let won = 0;
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -88,7 +90,7 @@ for (const l of LEVELS) {
       }
     }
     // the second (independent) run must roughly confirm the target; otherwise give an extra move
-    if (won / GAMES >= target - 0.06 || moves >= 45) break;
+    if (won / GAMES >= Math.min(target, 0.9) - 0.06 || moves >= 45) break;
     moves++;
   }
   wins.sort((a, b) => a - b);
