@@ -1710,6 +1710,13 @@
     gap: 4px;
   }
 
+  /* touch-only devices (no mouse/trackpad): keyboard shortcuts are just noise in help */
+  @media not (any-pointer: fine) {
+    .g92-keys {
+      display: none;
+    }
+  }
+
   /* countdown */
   .g92-countdown {
     position: fixed;
