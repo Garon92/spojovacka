@@ -307,12 +307,40 @@ export class BoardView {
     this.clip = clip;
   }
 
+  /** render every sprite in idle time so the first rocket/rainbow doesn't hitch */
+  private prewarm(cache: SpriteCache) {
+    const jobs: (() => void)[] = [];
+    const specials = ['none', 'rocketH', 'rocketV', 'bomb', 'butterfly'] as const;
+    for (let c = 0; c < GEM_COLORS.length; c++) {
+      for (const sp of specials) jobs.push(() => cache.tile({ kind: 'gem', color: c, special: sp }));
+      jobs.push(() => cache.glow(GEM_COLORS[c].light));
+    }
+    jobs.push(() => cache.tile({ kind: 'gem', color: -1, special: 'rainbow' }));
+    jobs.push(() => cache.tile({ kind: 'chick', color: -1, special: 'none' }));
+    for (const g of ['#ffffff', '#e0f2fe', '#fbbf24', '#fde047', '#fef08a', '#f0abfc', '#b45309', '#94a3b8']) jobs.push(() => cache.glow(g));
+    for (const k of [1, 2, 3]) jobs.push(() => cache.crate(k));
+    for (const k of [1, 2]) jobs.push(() => cache.ice(k));
+    jobs.push(() => cache.chain());
+    const ric: (cb: () => void) => void =
+      'requestIdleCallback' in window ? (cb) => (window as Window).requestIdleCallback(() => cb(), { timeout: 200 }) : (cb) => setTimeout(cb, 16);
+    const run = () => {
+      if (this.sprites !== cache) return;
+      const t0 = performance.now();
+      while (jobs.length && performance.now() - t0 < 8) jobs.shift()!();
+      if (jobs.length) ric(run);
+    };
+    ric(run);
+  }
+
   private draw(now: number) {
     if (this.cells.length !== this.w * this.h || this.cells.length === 0) return;
     const ctx = this.ctx;
     const W = this.canvas.width;
     const H = this.canvas.height;
-    if (!this.sprites) this.sprites = new SpriteCache(this.cell, this.theme);
+    if (!this.sprites) {
+      this.sprites = new SpriteCache(this.cell, this.theme);
+      this.prewarm(this.sprites);
+    }
     if (!this.bg) this.buildBackground();
     const sp = this.sprites;
     const s = this.cell;
@@ -513,6 +541,7 @@ export class BoardView {
   /* ---------------- step playback ---------------- */
 
   async play(steps: Step[]): Promise<void> {
+    this.cascade = 1;
     for (const st of steps) {
       switch (st.type) {
         case 'swap':
@@ -537,8 +566,12 @@ export class BoardView {
     }
   }
 
+  /** later cascades play a bit faster so long chains don't drag */
+  private cascade = 1;
+
   private ms(v: number) {
-    return v * this.speed * (this.reduced ? 0.7 : 1);
+    const boost = Math.max(0.62, 1 - 0.08 * (this.cascade - 1));
+    return v * this.speed * boost * (this.reduced ? 0.7 : 1);
   }
 
   private async playSwap(st: SwapStep) {
@@ -581,6 +614,7 @@ export class BoardView {
   }
 
   private async playClear(st: ClearStep) {
+    this.cascade = st.cascade;
     const now = performance.now();
     const T = this.ms(UNIT);
     const s = this.cell;

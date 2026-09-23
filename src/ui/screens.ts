@@ -129,6 +129,7 @@ export class MapScreen {
           'section',
           { class: `world world--${w.theme}${unlocked ? '' : ' is-locked'}`, 'aria-label': w.name },
           h('header', { class: 'world__head' }, h('span', { class: 'world__emoji', 'aria-hidden': 'true' }, w.emoji), h('h3', null, w.name), h('span', { class: 'world__stars', html: `${UI_ICONS.star} ${got} / 30` })),
+          unlocked ? null : h('p', { class: 'world__lock' }, `🔒 Otevře se po splnění úrovně ${levels[0].id - 1}`),
           path,
         ),
       );

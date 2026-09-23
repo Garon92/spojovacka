@@ -964,6 +964,32 @@ export class GameScreen {
         this.renderHud();
       },
       setTime: (s: number) => (this.timeLeft = s),
+      /** screenshots: sprinkle one of every special onto the board */
+      demoSpecials: () => {
+        const b = this.state.board;
+        const specials = ['rocketH', 'rocketV', 'bomb', 'butterfly', 'rainbow'] as const;
+        let k = 0;
+        for (let i = 0; i < b.cells.length && k < specials.length; i += 7) {
+          const c = b.cells[i];
+          if (c.tile && c.tile.kind === 'gem' && c.chain === 0) {
+            c.tile.special = specials[k++];
+            if (c.tile.special === 'rainbow') c.tile.color = -1;
+          }
+        }
+        this.view.sync(this.state);
+      },
+      setPieceTheme: (t: 'shapes' | 'balls' | 'diamonds' | 'dinos') => {
+        store.set('pieceTheme', t);
+        this.setPieceTheme();
+      },
+      hintNow: () => this.showHint(false),
+      setSpecial: (x: number, y: number, special: import('../core/types').Special) => {
+        const c = this.state.board.cells[y * this.state.board.w + x];
+        if (!c.tile) return;
+        c.tile.special = special;
+        if (special === 'rainbow') c.tile.color = -1;
+        this.view.sync(this.state);
+      },
     };
   }
 }

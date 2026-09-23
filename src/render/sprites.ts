@@ -263,12 +263,14 @@ function drawRainbow(ctx: Ctx, r: number) {
   sparkle(ctx, -r * 0.45, -r * 0.45, r * 0.16);
 }
 
-function drawSpecialOverlay(ctx: Ctx, special: Special, r: number) {
+function drawSpecialOverlay(ctx: Ctx, special: Special, r: number, clip: () => void) {
   switch (special) {
     case 'rocketH':
     case 'rocketV': {
-      // white stripes along the firing direction
+      // white stripes along the firing direction (inside the piece outline)
       ctx.save();
+      clip();
+      ctx.clip();
       ctx.globalAlpha = 0.55;
       ctx.fillStyle = '#fff';
       for (const k of [-0.55, 0, 0.55]) {
@@ -312,7 +314,13 @@ export function drawTile(ctx: Ctx, theme: PieceTheme, t: Pick<Tile, 'kind' | 'co
   }
   const clean = theme === 'dinos' && t.special !== 'none' ? 'shapes' : theme;
   drawGem(ctx, clean, t.color, r);
-  drawSpecialOverlay(ctx, t.special, r);
+  const shape = (GEM_COLORS[t.color] ?? GEM_COLORS[0]).shape;
+  drawSpecialOverlay(ctx, t.special, r, () => {
+    if (clean === 'balls') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
+    } else shapePath(ctx, shape, r);
+  });
 }
 
 /* ---------- obstacles ---------- */

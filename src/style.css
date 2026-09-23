@@ -1272,3 +1272,36 @@ html[data-motion='reduce'] .callout {
     font-size: 28px;
   }
 }
+
+/* short landscape phones: compact level intro */
+@media (max-height: 520px) {
+  .intro {
+    gap: var(--g92-space-2);
+  }
+  .intro__goals {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .intro__goals li {
+    font-size: var(--g92-fs-md);
+    padding: 4px 10px 4px 4px;
+  }
+  .intro__goals canvas {
+    width: 30px !important;
+    height: 30px !important;
+  }
+  .intro__tip {
+    grid-template-columns: auto 1fr;
+    padding: var(--g92-space-2);
+    font-size: var(--g92-fs-sm);
+  }
+  .intro__tip-pic canvas {
+    width: 24px !important;
+    height: 24px !important;
+  }
+}
+.world__lock {
+  margin: 0 0 var(--g92-space-3);
+  font-weight: var(--g92-fw-bold);
+  opacity: 0.85;
+}
