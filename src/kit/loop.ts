@@ -1,6 +1,7 @@
 /**
  * Game loop helper: requestAnimationFrame with clamped delta time, optional fixed-step update,
- * automatic stop while the tab is hidden (no catch-up burst when it comes back).
+ * automatic stop while the tab is hidden or a kit dialog (help / settings / confirm) is open —
+ * no catch-up burst afterwards, so timers built on `dt` freeze too.
  *
  *   const loop = createLoop({
  *     update: (dt) => world.step(dt),        // dt in seconds (clamped to maxDt)
@@ -15,6 +16,8 @@ export interface LoopOptions {
   fixedStep?: number;
   /** clamp for dt in seconds (default 0.1) */
   maxDt?: number;
+  /** freeze while a kit dialog is open (g92-dialog-open/close); default true */
+  pauseOnDialog?: boolean;
 }
 
 export interface Loop {
@@ -52,8 +55,10 @@ export function createLoop(o: LoopOptions): Loop {
     raf = requestAnimationFrame(frame);
   };
 
-  const onVisibility = () => {
-    if (document.visibilityState === 'hidden') {
+  let dialogs = 0;
+  const halted = () => document.visibilityState === 'hidden' || dialogs > 0;
+  const sync = () => {
+    if (halted()) {
       cancelAnimationFrame(raf);
       raf = 0;
     } else if (running && !raf) {
@@ -61,6 +66,17 @@ export function createLoop(o: LoopOptions): Loop {
       raf = requestAnimationFrame(frame);
     }
   };
+  const onVisibility = () => sync();
+  const onDialogOpen = () => {
+    dialogs++;
+    sync();
+  };
+  const onDialogClose = (e: Event) => {
+    const open = (e as CustomEvent<{ open?: number }>).detail?.open;
+    dialogs = typeof open === 'number' ? open : Math.max(0, dialogs - 1);
+    sync();
+  };
+  const useDialog = o.pauseOnDialog ?? true;
 
   return {
     start() {
@@ -69,13 +85,20 @@ export function createLoop(o: LoopOptions): Loop {
       last = 0;
       acc = 0;
       document.addEventListener('visibilitychange', onVisibility);
-      raf = requestAnimationFrame(frame);
+      if (useDialog) {
+        document.addEventListener('g92-dialog-open', onDialogOpen);
+        document.addEventListener('g92-dialog-close', onDialogClose);
+      }
+      if (!halted()) raf = requestAnimationFrame(frame);
     },
     stop() {
       running = false;
       cancelAnimationFrame(raf);
       raf = 0;
+      dialogs = 0;
       document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('g92-dialog-open', onDialogOpen);
+      document.removeEventListener('g92-dialog-close', onDialogClose);
     },
     get running() {
       return running;

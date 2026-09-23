@@ -3,11 +3,12 @@
  * Key: `g92:settings`. Importing this module applies theme/motion to <html>.
  *
  *   import { settings } from './kit';
- *   settings.get().sound            // boolean
+ *   settings.get().sound            // boolean — sound effects + music
+ *   settings.get().voice            // boolean — automatic speech ("Předčítání"); tapped "listen" buttons always speak
  *   settings.set({ theme: 'dark' })
  *   const off = settings.subscribe((s) => …)   // also fires on changes from other tabs
  */
-import { readJSON, writeJSON } from './storage';
+import { readJSON, safeStorage, writeJSON } from './storage';
 
 export type ThemeSetting = 'auto' | 'light' | 'dark';
 export type MotionSetting = 'auto' | 'on' | 'off'; // on = reduce motion, off = full motion
@@ -18,7 +19,10 @@ export interface G92Settings {
   volume: number;
   theme: ThemeSetting;
   reducedMotion: MotionSetting;
+  /** family default name — apps read getPlayerName(appId), which honours a per-app override */
   playerName: string;
+  /** automatic speech (read-aloud of tasks, catches…). Explicit "listen" buttons ignore it. Default on. */
+  voice: boolean;
 }
 
 export const SETTINGS_KEY = 'g92:settings';
@@ -29,6 +33,7 @@ export const DEFAULT_SETTINGS: Readonly<G92Settings> = Object.freeze({
   theme: 'auto',
   reducedMotion: 'auto',
   playerName: '',
+  voice: true,
 });
 
 type Listener = (s: Readonly<G92Settings>, prev: Readonly<G92Settings>) => void;
@@ -45,6 +50,7 @@ function sanitize(raw: unknown): G92Settings {
     theme: r.theme === 'light' || r.theme === 'dark' || r.theme === 'auto' ? r.theme : d.theme,
     reducedMotion: r.reducedMotion === 'on' || r.reducedMotion === 'off' || r.reducedMotion === 'auto' ? r.reducedMotion : d.reducedMotion,
     playerName: typeof r.playerName === 'string' ? r.playerName.slice(0, 40) : d.playerName,
+    voice: typeof r.voice === 'boolean' ? r.voice : d.voice,
   };
 }
 
@@ -124,6 +130,29 @@ export function reloadSettings(): void {
   emit(prev);
 }
 
+// ---- player names: family default + optional per-app override (g92:<app>:name) ----------------
+
+const nameKey = (appId: string) => `g92:${appId}:name`;
+
+/** Per-app name override, or null when the app uses the family default. */
+export function getAppPlayerName(appId: string): string | null {
+  const v = readJSON<unknown>(nameKey(appId), null);
+  return typeof v === 'string' && v.trim() ? v : null;
+}
+
+/** Name to use inside an app: its own override (e.g. the teen in angličtina) or the family default. */
+export function getPlayerName(appId?: string): string {
+  return (appId ? getAppPlayerName(appId) : null) ?? current.playerName;
+}
+
+/** Set (or clear with null/'') the per-app name override. Notifies settings subscribers. */
+export function setAppPlayerName(appId: string, name: string | null): void {
+  const v = (name ?? '').trim().slice(0, 40);
+  if (v) writeJSON(nameKey(appId), v);
+  else safeStorage.removeItem(nameKey(appId));
+  emit(current);
+}
+
 export const settings = {
   get: getSettings,
   snapshot: getSettingsSnapshot,
@@ -140,6 +169,7 @@ if (typeof window !== 'undefined') {
   applySettings(current);
   window.addEventListener('storage', (e) => {
     if (e.key === SETTINGS_KEY || e.key === null) reloadSettings();
+    else if (e.key && /^g92:[^:]+:name$/.test(e.key)) emit(current);
   });
   const onSystemChange = () => emit(current);
   mql('(prefers-color-scheme: dark)')?.addEventListener?.('change', onSystemChange);

@@ -1,7 +1,7 @@
 /**
  * Daily goal + streak for learning apps (stored as g92:<app>:daily).
  *
- *   const daily = createDaily('matematika', { goal: 20 });
+ *   const daily = createDaily('matematika', { goal: 20, unit: ['příklad', 'příklady', 'příkladů'] });
  *   const r = daily.record();            // after each solved task → { today, goal, reachedNow, streak }
  *   if (r.reachedNow) { sfx.levelUp(); toast('Denní cíl splněn!'); }
  *   daily.streak();  daily.today();  daily.week();   // week(): last 7 days [{ date, count, done }]
@@ -12,6 +12,8 @@ export interface DailyData {
   goal: number;
   days: Record<string, number>;
   bestStreak: number;
+  /** what is counted, Czech plural forms (e.g. ['příklad','příklady','příkladů']) — shown by the menu */
+  unit?: [string, string, string];
 }
 
 export interface DailyRecordResult {
@@ -33,6 +35,8 @@ export interface Daily {
   week(now?: Date): { date: string; count: number; done: boolean; isToday: boolean }[];
   /** 0..1 of today's goal */
   todayProgress(now?: Date): number;
+  /** counted unit (from options or stored data) */
+  unit(): [string, string, string] | undefined;
 }
 
 export function dayKey(d: Date): string {
@@ -45,7 +49,7 @@ function addDays(d: Date, n: number): Date {
   return x;
 }
 
-export function createDaily(appId: string, opts: { goal?: number; keepDays?: number } = {}): Daily {
+export function createDaily(appId: string, opts: { goal?: number; keepDays?: number; unit?: readonly [string, string, string] } = {}): Daily {
   const key = `g92:${appId}:daily`;
   const load = (): DailyData => {
     const d = readJSON<Partial<DailyData>>(key, {});
@@ -53,6 +57,7 @@ export function createDaily(appId: string, opts: { goal?: number; keepDays?: num
       goal: typeof d.goal === 'number' && d.goal > 0 ? d.goal : (opts.goal ?? 10),
       days: d.days && typeof d.days === 'object' ? d.days : {},
       bestStreak: typeof d.bestStreak === 'number' ? d.bestStreak : 0,
+      ...(opts.unit ? { unit: [...opts.unit] as [string, string, string] } : Array.isArray(d.unit) && d.unit.length === 3 ? { unit: d.unit } : {}),
     };
   };
   const save = (d: DailyData) => {
@@ -102,6 +107,7 @@ export function createDaily(appId: string, opts: { goal?: number; keepDays?: num
         return { date: k, count, done: count >= d.goal, isToday: i === 6 };
       });
     },
+    unit: () => load().unit,
     todayProgress(now = new Date()) {
       const d = load();
       return Math.min(1, (d.days[dayKey(now)] ?? 0) / d.goal);

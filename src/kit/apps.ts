@@ -154,7 +154,7 @@ export const APPS: readonly G92App[] = [
     id: 'dots',
     name: 'Dots',
     tagline: 'Živé barevné tečky',
-    description: 'Simulace „particle life": z pár pravidel vznikají buňky, řetězy i lov.',
+    description: 'Živá simulace částic: z pár pravidel vznikají buňky, řetězy i lov.',
     category: 'play',
     accent: '#14b8a6',
     icon: ICONS.dots,
@@ -167,6 +167,13 @@ export const APP_BY_ID: Readonly<Record<AppId, G92App>> = Object.fromEntries(APP
 
 export function getApp(id: string | null | undefined): G92App | undefined {
   return id ? (APP_BY_ID as Record<string, G92App | undefined>)[id] : undefined;
+}
+
+/** Family title format for <title>: "‹Name› – ‹tagline›" (en dash); the menu is "Garon92 – hry a učení". */
+export function appTitle(id: AppId, page?: string): string {
+  const app = APP_BY_ID[id];
+  const base = id === 'menu' ? 'Garon92 – hry a učení' : `${app.name} – ${app.tagline}`;
+  return page ? `${page} · ${base}` : base;
 }
 
 export const CATEGORY_LABELS: Record<AppCategory, string> = {

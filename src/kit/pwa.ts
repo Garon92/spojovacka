@@ -35,7 +35,7 @@ export const PWA_APPS: Record<AppId, PwaApp> = {
   ryby: { id: 'ryby', name: 'Ryby', tagline: 'Rybaření u nás doma', description: 'Nahoď prut a chytej české ryby — album úlovků, mise a odměny.', category: 'play', accent: '#0ea5e9', path: '/ryby/' },
   komari: { id: 'komari', name: 'Komáři', tagline: 'Plácni je všechny!', description: 'Bzzz… rychle, než tě štípnou! Plácačka na komáry.', category: 'play', accent: '#22c55e', path: '/komari/' },
   spojovacka: { id: 'spojovacka', name: 'Spojovačka', tagline: 'Spoj tři stejné', description: 'Prohazuj barevné tvary, skládej řady a odpal rakety a bomby.', category: 'play', accent: '#f59e0b', path: '/spojovacka/' },
-  dots: { id: 'dots', name: 'Dots', tagline: 'Živé barevné tečky', description: 'Simulace „particle life": z pár pravidel vznikají buňky, řetězy i lov.', category: 'play', accent: '#14b8a6', path: '/dots/' },
+  dots: { id: 'dots', name: 'Dots', tagline: 'Živé barevné tečky', description: 'Živá simulace částic: z pár pravidel vznikají buňky, řetězy i lov.', category: 'play', accent: '#14b8a6', path: '/dots/' },
 };
 
 export interface G92PwaOverrides {
@@ -47,6 +47,8 @@ export interface G92PwaOverrides {
   orientation?: 'any' | 'portrait' | 'landscape';
   /** extra glob patterns to precache (default covers js/css/html/svg/png/webp/woff2/json/mp3) */
   globPatterns?: string[];
+  /** extra files NOT to precache (italic fonts and 404.html are always ignored) */
+  globIgnores?: string[];
   /** big assets (MB) allowed in precache (default 6) */
   maxFileSizeMB?: number;
   /** runtime caching rules passed to workbox (workbox RuntimeCaching[]) */
@@ -60,6 +62,15 @@ export interface G92PwaOverrides {
   extra?: Record<string, unknown>;
 }
 
+const MENU_TITLE = 'Garon92 – hry a učení';
+const MENU_SHORT_NAME = 'Hry a učení';
+
+/** Family title format for <title> and the manifest: "‹Name› – ‹tagline›" (en dash). */
+export function pwaTitle(appId: AppId): string {
+  const app = PWA_APPS[appId];
+  return app.id === 'menu' ? MENU_TITLE : `${app.name} – ${app.tagline}`;
+}
+
 export function g92Pwa(appId: AppId, o: G92PwaOverrides = {}) {
   const app = PWA_APPS[appId];
   if (!app) throw new Error(`g92Pwa: unknown app "${appId}"`);
@@ -71,8 +82,8 @@ export function g92Pwa(appId: AppId, o: G92PwaOverrides = {}) {
     includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
     manifest: {
       id: scope,
-      name: o.name ?? (app.id === 'menu' ? 'garon92 — hry a učení' : `${app.name} — ${app.tagline}`),
-      short_name: o.shortName ?? app.name,
+      name: o.name ?? pwaTitle(app.id),
+      short_name: o.shortName ?? (app.id === 'menu' ? MENU_SHORT_NAME : app.name),
       description: o.description ?? app.description,
       lang: 'cs',
       dir: 'ltr' as const,
@@ -92,6 +103,8 @@ export function g92Pwa(appId: AppId, o: G92PwaOverrides = {}) {
     },
     workbox: {
       globPatterns: o.globPatterns ?? ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,avif,woff2,json,mp3,ogg,wav,ico,webmanifest}'],
+      // italic Nunito is never used by default — don't precache it (+ the 404 page)
+      globIgnores: ['**/*italic*', '**/404.html', ...(o.globIgnores ?? [])],
       maximumFileSizeToCacheInBytes: (o.maxFileSizeMB ?? 6) * 1024 * 1024,
       cleanupOutdatedCaches: true,
       clientsClaim: true,
@@ -101,4 +114,77 @@ export function g92Pwa(appId: AppId, o: G92PwaOverrides = {}) {
     devOptions: { enabled: false },
     ...(o.extra ?? {}),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Czech 404 page per app (GitHub Pages serves /<app>/404.html for unknown paths)
+// ---------------------------------------------------------------------------
+
+interface EmitCtx {
+  emitFile(file: { type: 'asset'; fileName: string; source: string | Uint8Array }): string;
+  warn?(msg: string): void;
+}
+type BundleItem = { type: string; fileName?: string; source?: string | Uint8Array };
+
+/**
+ * Vite plugin: emits dist/404.html.
+ *   plugins: [VitePWA(g92Pwa('tanky')), g92NotFoundPage('tanky')]
+ * `spa: true` (apps with path routes, e.g. angličtina) copies the built index.html, so deep links render the
+ * app instead of GitHub's English error page. Otherwise a small Czech page with a big "Zpět do aplikace" button.
+ */
+export function g92NotFoundPage(appId: AppId, o: { spa?: boolean } = {}) {
+  const app = PWA_APPS[appId];
+  return {
+    name: 'g92-404',
+    apply: 'build' as const,
+    enforce: 'post' as const,
+    generateBundle(this: EmitCtx, _options: unknown, bundle: Record<string, BundleItem>) {
+      if (o.spa) {
+        const index = bundle['index.html'];
+        if (index && index.source !== undefined) {
+          this.emitFile({ type: 'asset', fileName: '404.html', source: index.source });
+          return;
+        }
+        this.warn?.('g92NotFoundPage: index.html not found in bundle, emitting the static 404 page');
+      }
+      this.emitFile({ type: 'asset', fileName: '404.html', source: notFoundHtml(app) });
+    },
+  };
+}
+
+function notFoundHtml(app: PwaApp): string {
+  return `<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Stránka nenalezena – ${app.name}</title>
+<link rel="icon" href="${app.path}favicon.svg" type="image/svg+xml">
+<style>
+:root{--a:${app.accent};--bg:#f5f6fb;--s:#fff;--t:#161a2e;--m:#595f7a;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#0c0f1d;--s:#161a2f;--t:#eef0fb;--m:#a6acc8}}
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;background:radial-gradient(60rem 30rem at 50% -10rem,color-mix(in oklab,var(--a) 18%,transparent),transparent 70%),var(--bg);color:var(--t);font:500 17px/1.5 'Nunito Variable',Nunito,ui-rounded,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;text-align:center}
+main{max-width:26rem;padding:36px 28px;border-radius:32px;background:var(--s);box-shadow:0 20px 50px -20px rgb(0 0 0/.25)}
+.i{font-size:64px;line-height:1}
+h1{margin:12px 0 6px;font-size:28px;font-weight:900;letter-spacing:-.02em}
+p{color:var(--m)}
+a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:56px;margin-top:22px;border-radius:18px;font-weight:900;text-decoration:none}
+.p{background:var(--a);color:#fff;font-size:20px;box-shadow:inset 0 -4px 0 rgb(0 0 0/.15)}
+.s{min-height:48px;margin-top:10px;color:var(--t);border:2px solid color-mix(in oklab,var(--t) 15%,transparent)}
+</style>
+</head>
+<body>
+<main>
+<div class="i" aria-hidden="true">🧭</div>
+<h1>Tahle stránka tu není</h1>
+<p>Možná se změnila adresa. Nevadí — pokračuj v aplikaci ${app.name}.</p>
+<a class="p" href="${app.path}">Zpět do aplikace</a>
+${app.id === 'menu' ? '' : '<a class="s" href="/menu/">Menu – všechny hry a cvičení</a>'}
+</main>
+</body>
+</html>
+`;
 }

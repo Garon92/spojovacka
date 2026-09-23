@@ -6,6 +6,9 @@ export { KIT_VERSION } from './version';
 export { safeStorage, readJSON, writeJSON } from './storage';
 export {
   settings,
+  getPlayerName,
+  getAppPlayerName,
+  setAppPlayerName,
   getSettings,
   getSettingsSnapshot,
   setSettings,
@@ -29,6 +32,7 @@ export {
   subscribeActivity,
   timeAgo,
   timeAgoShort,
+  metricText,
   formatMetric,
   ACTIVITY_KEY,
   type ActivityEntry,
@@ -36,7 +40,7 @@ export {
   type ActivityMetric,
   type ActivityUpdate,
 } from './activity';
-export { APPS, APP_BY_ID, ICONS, CATEGORY_LABELS, getApp, applyAccent, type G92App, type AppId, type AppCategory } from './apps';
+export { APPS, APP_BY_ID, ICONS, CATEGORY_LABELS, getApp, applyAccent, appTitle, type G92App, type AppId, type AppCategory } from './apps';
 export { sfx, play as playSfx, tone, unlockAudio, haptic, type SfxName, type ToneOptions, type HapticName } from './sfx';
 export { h, starsHTML, plural, flash, bindRange, UI_ICONS, type UiIconName } from './dom';
 export {
@@ -44,6 +48,11 @@ export {
   confirmDialog,
   alertDialog,
   openSettingsDialog,
+  setSettingsSection,
+  isDialogOpen,
+  onDialogChange,
+  type NameMode,
+  type SettingsSection,
   type DialogOptions,
   type DialogAction,
   type DialogHandle,
@@ -52,7 +61,7 @@ export {
   type ButtonVariant,
 } from './dialog';
 export { toast, type ToastOptions, type ToastVariant } from './toast';
-export { G92Appbar, defineAppbar } from './appbar';
+export { G92Appbar, defineAppbar, appbarAction, appbarPauseButton, type AppbarActionOptions } from './appbar';
 export { confetti, confettiFrom, clearConfetti, type ConfettiOptions } from './confetti';
 export {
   showStart,
@@ -74,9 +83,36 @@ export {
   type KeyHint,
 } from './overlay';
 export { vocative, greeting, dayPart, countLabel, type DayPart } from './cz';
-export { g92Pwa, type G92PwaOverrides } from './pwa';
+export { g92Pwa, g92NotFoundPage, pwaTitle, type G92PwaOverrides } from './pwa';
 export { appIconSvg, shade } from './apps';
 export { createLoop, type Loop, type LoopOptions } from './loop';
 export { fitCanvas, type CanvasView, type FitCanvasOptions } from './canvas';
 export { createDaily, dayKey, type Daily, type DailyData, type DailyRecordResult } from './streak';
-export { setHelp, getHelp, showHelp, type HelpContent } from './help';
+export { setHelp, getHelp, showHelp, helpTitle, type HelpContent, type HelpSection } from './help';
+export {
+  LABELS,
+  LABEL_ICONS,
+  DIFFICULTIES_3,
+  HELP_TITLE_GAME,
+  HELP_TITLE_LEARN,
+  SETTINGS_LABELS,
+  GLOBAL_KEYS,
+  type LabelKey,
+  type Difficulty3,
+} from './labels';
+export {
+  guardLeave,
+  setLeaveGuard,
+  confirmLeave,
+  canLeave,
+  goToMenu,
+  cameFromMenu,
+  isStandalone,
+  menuLinkAvailable,
+  isLeaveGuarded,
+  type LeaveGuard,
+  type GuardLeaveOptions,
+  type ConfirmLeaveOptions,
+} from './nav';
+export { resetApp, resetAppData } from './reset';
+export { speak, canAutoSpeak, type SpeakOptions } from './speech';

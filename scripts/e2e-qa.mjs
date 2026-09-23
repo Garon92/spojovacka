@@ -109,7 +109,7 @@ const contrast = (a, b) => {
     const b = document.querySelector('.g92-overlay--results [data-primary]');
     const r = b.getBoundingClientRect();
     const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return { same: b === el || b.contains(el), toasts: document.querySelectorAll('.g92-toast').length, badges: document.querySelectorAll('.ach-new__chip').length };
+    return { same: b === el || b.contains(el), toasts: document.querySelectorAll('.g92-toast').length, badges: [...document.querySelectorAll('.g92-overlay__stat dt')].filter((d) => /úspěch/i.test(d.textContent)).length };
   });
   ok('SPOJ-03', 'no toast over results, achievements inside results', hit.same && hit.toasts === 0, JSON.stringify(hit));
   await ctx.close();
@@ -140,7 +140,7 @@ for (const lvl of [40, 30, 20]) {
     const r = b.getBoundingClientRect();
     const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     const stats = [...document.querySelectorAll('.g92-overlay--results .g92-overlay__stat')].map((s) => Math.round(s.getBoundingClientRect().top));
-    return { clickable: b === el || b.contains(el), toasts: document.querySelectorAll('.g92-toast').length, chips: [...document.querySelectorAll('.ach-new__chip')].map((c) => c.textContent), rows: new Set(stats).size, stats: stats.length };
+    return { clickable: b === el || b.contains(el), toasts: document.querySelectorAll('.g92-toast').length, chips: [...document.querySelectorAll('.g92-overlay__stat')].filter((d) => /úspěch/i.test(d.textContent)).map((c) => c.textContent.trim()), rows: new Set(stats).size, stats: stats.length };
   });
   await page.screenshot({ path: path.join(out, 'qa-p360-dark-win-l1.png') });
   ok('SPOJ-03', '360 win l1: CTA clickable, no toasts, achievement badge shown', m.clickable && m.toasts === 0 && m.chips.length >= 1, JSON.stringify(m));
@@ -267,6 +267,69 @@ for (const w of [360, 375, 381, 390, 412]) {
   const vis = await page.evaluate(() => getComputedStyle(document.querySelector('.game__title')).display);
   await page.screenshot({ path: path.join(out, 'qa-p390-light-relax.png') });
   ok('SPOJ-13', 'no title above the board in Pohoda', vis === 'none', vis);
+  await ctx.close();
+}
+
+// ---------------- kit v0.7 contract: appbar pause, leave guard, help title, keys, activity metric
+{
+  const { ctx, page } = await open('p390', { progress: 3 });
+  await page.goto(base + '#/');
+  await wait(page, 500);
+  const pauseHome = await page.locator('g92-appbar > .g92-appbar-action').first().isVisible();
+  await startLevel(page, 2);
+  const pauseGame = await page.locator('g92-appbar > .g92-appbar-action').first().isVisible();
+  ok('KIT', 'appbar pause button only while playing', !pauseHome && pauseGame, `home ${pauseHome}, game ${pauseGame}`);
+  // before the first move nothing is lost → no guard; after a move → guard
+  await page.evaluate(() => window.__spojovacka.botMove());
+  await idle(page);
+  await page.locator('g92-appbar').getByRole('link', { name: /Menu/ }).or(page.locator('g92-appbar').getByRole('button', { name: /Menu/ })).first().click();
+  await wait(page, 600);
+  const guard = await page.evaluate(() => {
+    const d = document.querySelector('dialog[open]');
+    return { title: d?.querySelector('h2, .g92-dialog__title')?.textContent ?? '', focus: document.activeElement?.textContent?.trim() ?? '', paused: !!document.querySelector('.g92-overlay--pause'), url: location.pathname };
+  });
+  await page.screenshot({ path: path.join(out, 'qa-p390-light-leave-guard.png') });
+  ok('KIT', 'Menu mid-level asks (focus Zůstat) and pauses', /Odejít do menu/.test(guard.title) && /Zůstat/.test(guard.focus) && guard.paused, JSON.stringify(guard));
+  await page.getByRole('button', { name: 'Zůstat' }).click();
+  await wait(page, 400);
+  const still = await page.evaluate(() => ({ url: location.pathname + location.hash, paused: !!document.querySelector('.g92-overlay--pause') }));
+  ok('KIT', 'Zůstat keeps the game (paused)', still.url.includes('/spojovacka/#/uroven/2') && still.paused, JSON.stringify(still));
+  // pause overlay wording
+  const pauseBtns = await page.evaluate(() => [...document.querySelectorAll('.g92-overlay--pause button, .g92-overlay--pause a')].map((b) => b.textContent.trim()));
+  ok('KIT', 'pause: Pokračovat / Hrát znovu / Ukončit hru / Menu', ['Pokračovat', 'Hrát znovu', 'Ukončit hru', 'Menu'].every((w) => pauseBtns.includes(w)), pauseBtns.join(' | '));
+  await page.keyboard.press('Escape');
+  await wait(page, 400);
+  // help via "?" key → kit dialog "Jak hrát", game pauses
+  await page.keyboard.press('?');
+  await wait(page, 600);
+  const help = await page.evaluate(() => ({ title: document.querySelector('dialog[open] h2, dialog[open] .g92-dialog__title')?.textContent ?? '', paused: !!document.querySelector('.g92-overlay--pause'), rich: !!document.querySelector('dialog[open] .howto') }));
+  ok('KIT', 'help = kit dialog "Jak hrát" with our content, game paused', help.title === 'Jak hrát' && help.rich && help.paused, JSON.stringify(help));
+  await page.getByRole('button', { name: 'Rozumím' }).click();
+  await wait(page, 300);
+  // M = mute (appbar keys)
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('g92:settings') ?? '{}').sound !== false);
+  await page.keyboard.press('Escape');
+  await wait(page, 300);
+  await page.keyboard.press('m');
+  await wait(page, 300);
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('g92:settings') ?? '{}').sound !== false);
+  ok('KIT', 'M toggles sound (kit keys)', before !== after, `${before} → ${after}`);
+  // win → activity metric with unit + href
+  await forceWin(page);
+  const act = await page.evaluate(() => JSON.parse(localStorage.getItem('g92:activity') ?? '{}').spojovacka);
+  ok('KIT', 'menu metric has unit/of + note + href', Array.isArray(act?.metric?.unit) && act.metric.of === 120 && /Úroveň/.test(act.note) && /^\/spojovacka\/#\/uroven\//.test(act.href), JSON.stringify(act));
+  const doc = await page.evaluate(() => ({ title: document.title, game: document.documentElement.classList.contains('g92-game') }));
+  ok('KIT', 'title + g92-game class', doc.title === 'Spojovačka – Spoj tři stejné' && doc.game, JSON.stringify(doc));
+  await ctx.close();
+}
+// timed difficulty names
+{
+  const { ctx, page } = await open('p360');
+  await page.goto(base + '#/na-cas');
+  await wait(page, 900);
+  const labels = await page.evaluate(() => [...document.querySelectorAll('.g92-difficulty__label')].map((l) => l.textContent));
+  await page.screenshot({ path: path.join(out, 'qa-p360-light-timed-start.png') });
+  ok('KIT', 'DIFFICULTIES_3 Lehká / Normální / Těžká', labels.join('/') === 'Lehká/Normální/Těžká', labels.join('/'));
   await ctx.close();
 }
 

@@ -8,6 +8,9 @@ import { emptyStats, type GameStats, type Goal, type Move, type Pos } from '../c
 import { sfx as gameSfx } from '../audio/sfx';
 import { BoardInput } from '../input/boardInput';
 import {
+  DIFFICULTIES_3,
+  LABELS,
+  LABEL_ICONS,
   UI_ICONS,
   autoPause,
   countdown,
@@ -38,7 +41,7 @@ import {
   totalStars,
   type Difficulty,
 } from '../app/save';
-import { TIPS, goalIcon, goalLabel, howToContent } from './content';
+import { TIPS, goalIcon, goalLabel } from './content';
 import { checkAchievements, type Achievement } from '../app/achievements';
 import type { Nav } from './nav';
 
@@ -56,12 +59,12 @@ export const TIMED_STARS: Record<Difficulty, [number, number, number]> = {
 const EXTRA_MOVES = 5;
 const EXTRA_COST = 30;
 const CALLOUTS = ['', '', 'Dobře!', 'Super!', 'Skvělé!', 'Úžasné!', 'Fantastické!', 'Neuvěřitelné!'];
-/** kit wording (C-12): Lehká / Normální / Těžká, the flavour goes into the hint */
-const DIFFICULTIES = [
-  { id: 'easy', label: 'Lehká', icon: '🐢', hint: '4 barvy' },
-  { id: 'normal', label: 'Normální', icon: '🐇', hint: '5 barev' },
-  { id: 'hard', label: 'Těžká', icon: '🔥', hint: '6 barev' },
-];
+/** family difficulty names (kit DIFFICULTIES_3), our flavour – number of colours – in the hint */
+const COLOR_HINT: Record<Difficulty, string> = { easy: '4 barvy', normal: '5 barev', hard: '6 barev' };
+const DIFFICULTIES = DIFFICULTIES_3.map((d) => ({ ...d, hint: COLOR_HINT[d.id] }));
+/** simple folded-map icon for "Mapa" buttons (in-app, not the kit's ⊞ Menu) */
+const MAP_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6Z" fill="currentColor" fill-opacity=".15"/><path d="M9 4v14M15 6v14"/></svg>';
 const PLAIN8 = ['........', '........', '........', '........', '........', '........', '........', '........'];
 
 function fmtTime(s: number) {
@@ -99,7 +102,17 @@ export class GameScreen {
   private diff: Difficulty = 'normal';
   private state!: GameState;
   private busy = false;
-  private ended = true;
+  private _ended = true;
+  /** game started and not finished (appbar pause button, leave guard) */
+  private get ended() {
+    return this._ended;
+  }
+  private set ended(v: boolean) {
+    const was = this._ended;
+    this._ended = v;
+    if (was !== v) this.onRunningChange?.(!v && this.active);
+  }
+  onRunningChange?: (running: boolean) => void;
   private paused = false;
   private active = false;
   private pauseOverlay: ReturnType<typeof showPause> | null = null;
@@ -149,9 +162,7 @@ export class GameScreen {
     this.stageTitle = h('div', { class: 'game__title', 'aria-hidden': 'true' });
 
     this.hintBtn = h('button', { type: 'button', class: 'g92-btn g92-btn--secondary game__btn', 'aria-label': 'Nápověda (H)', title: 'Nápověda (H)' }, h('span', { class: 'game__btn-ico', 'aria-hidden': 'true' }, '💡'), h('span', { class: 'game__btn-txt' }, 'Nápověda')) as HTMLButtonElement;
-    const pauseBtn = h('button', { type: 'button', class: 'g92-btn game__btn', 'aria-label': 'Pauza (P)', title: 'Pauza (P)', html: UI_ICONS.pause }, h('span', { class: 'game__btn-txt' }, 'Pauza'));
     this.hintBtn.addEventListener('click', () => this.showHint(true));
-    pauseBtn.addEventListener('click', () => void this.pause());
 
     const hud = h(
       'div',
@@ -162,7 +173,8 @@ export class GameScreen {
       h('div', { class: 'hud__score' }, h('span', { class: 'hud__label' }, 'Body'), this.hudScore, h('span', { class: 'hud__starline' }, this.hudBar, this.hudStars)),
     );
     const stage = h('div', { class: 'game__stage' }, this.stageTitle, this.canvas, this.callouts);
-    const bar = h('div', { class: 'game__bar' }, h('div', { class: 'game__mini' }, miniCanvas), this.hintBtn, pauseBtn);
+    // pause lives in the appbar (kit appbarPauseButton, registered in main.ts)
+    const bar = h('div', { class: 'game__bar' }, h('div', { class: 'game__mini' }, miniCanvas), this.hintBtn);
     const side = h('aside', { class: 'game__side', 'aria-hidden': 'true' }, h('div', { class: 'side__card' }, sideCanvas, this.sideInfo));
     this.el.append(hud, stage, bar, side, this.live);
 
@@ -201,6 +213,11 @@ export class GameScreen {
   }
 
   /* ---------------- public ---------------- */
+
+  /** a game is in progress and something would be lost by leaving */
+  isRunning(): boolean {
+    return this.active && !this.ended && !!this.state && this.state.movesMade > 0;
+  }
 
   applySound() {
     const s = getSettings();
@@ -350,8 +367,9 @@ export class GameScreen {
   leave() {
     if (this.state) this.commitGame(false);
     this.session++;
-    this.active = false;
     this.ended = true;
+    this.active = false;
+    this.onRunningChange?.(false);
     this.el.hidden = true;
     this.view.stop();
     this.view.flush();
@@ -579,8 +597,8 @@ export class GameScreen {
       content,
       className: 'level-intro',
       actions: [
-        { label: 'Zpět', value: 'back', variant: 'ghost', icon: UI_ICONS.back },
-        { label: 'Hrát', value: 'play', variant: 'primary', icon: UI_ICONS.play, autofocus: true },
+        { label: this.daily ? LABELS.home : 'Mapa', value: 'back', variant: 'ghost', icon: this.daily ? LABEL_ICONS.home : MAP_ICON },
+        { label: LABELS.play, value: 'play', variant: 'primary', icon: LABEL_ICONS.play, autofocus: true },
       ],
       dismissValue: 'back',
     });
@@ -784,11 +802,10 @@ export class GameScreen {
       extra = h('ul', { class: 'pause__goals' }, ...this.state.goals.map((g) => h('li', { class: g.done >= g.target ? 'is-done' : '' }, goalIcon(theme, g, 26), h('span', null, goalLabel(g)), h('b', null, g.done >= g.target ? '✓' : `${Math.max(0, g.target - g.done)}`))));
     }
     this.pauseOverlay = showPause({
-      title: 'Pauza',
+      title: LABELS.pause,
       subtitle: this.mode === 'level' ? this.levelTitle() : this.mode === 'timed' ? 'Na čas' : 'Pohoda',
       stats,
-      menuHref: null,
-      menuLabel: 'Ukončit hru',
+      quit: true,
       container: this.el,
       ...(extra ? { extra } : {}),
     });
@@ -803,11 +820,12 @@ export class GameScreen {
       this.scheduleIdle();
     } else if (choice === 'restart') {
       this.restart();
-    } else {
+    } else if (choice === 'quit') {
       if (this.mode === 'level') this.nav.go(this.daily ? '#/' : '#/mapa');
       else if (this.mode === 'relax') void this.endRelax();
       else this.nav.go('#/');
     }
+    // 'menu' → the kit leaves the app itself
   }
 
   private restart() {
@@ -897,7 +915,6 @@ export class GameScreen {
     const fresh = this.commitGame(true);
     this.reportActivity();
     const isLast = level.id >= LEVELS.length;
-    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: `Úroveň ${level.id} splněna!`,
       subtitle:
@@ -914,23 +931,23 @@ export class GameScreen {
       best: prev.best > 0 ? Math.max(prev.best, score) : null,
       isNewBest: prev.best > 0 && score > prev.best,
       stars,
-      stats: [
+      stats: this.statsWith(fresh, [
         { label: 'Mince', value: `+${coins}`, icon: '🪙' },
         { label: 'Nejdelší řetěz', value: `×${this.state.stats.maxCascade}` },
         { label: 'Speciály', value: this.state.stats.specialsUsed },
+      ]),
+      againLabel: isLast ? 'Mapa úrovní' : LABELS.next,
+      againIcon: isLast ? MAP_ICON : LABEL_ICONS.next,
+      actions: [
+        { label: LABELS.again, value: 'retry', variant: 'secondary', icon: LABEL_ICONS.again },
+        ...(isLast ? [] : [{ label: 'Mapa', value: 'map', variant: 'ghost' as const, icon: MAP_ICON }]),
       ],
-      againLabel: isLast ? 'Mapa úrovní' : 'Další úroveň',
-      againIcon: isLast ? UI_ICONS.grid : UI_ICONS.arrowRight,
-      actions: [{ label: 'Hrát znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
-      menuHref: null,
-      menuLabel: 'Mapa',
       container: this.el,
-      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'again') this.nav.go(isLast ? '#/mapa' : `#/uroven/${level.id + 1}`);
     else if (choice === 'retry') this.nav.go(`#/uroven/${level.id}`, true);
-    else this.nav.go('#/mapa');
+    else if (choice === 'map') this.nav.go('#/mapa');
   }
 
   private async winDaily(score: number, stars: number) {
@@ -939,7 +956,6 @@ export class GameScreen {
     const coins = coinsForScore(score) + (first ? 50 : 0);
     addCoins(coins);
     const fresh = this.commitGame(true);
-    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: 'Denní výzva splněna!',
       subtitle: first ? `🔥 Série ${streak} ${streak === 1 ? 'den' : streak < 5 ? 'dny' : 'dní'}. Zítra tě čeká nová výzva!` : 'Zítra tě čeká nová výzva!',
@@ -947,23 +963,23 @@ export class GameScreen {
       best: first ? null : Math.max(prevBest, score),
       isNewBest: !first && score > prevBest,
       stars,
-      stats: [
+      stats: this.statsWith(fresh, [
         { label: 'Mince', value: `+${coins}`, icon: '🪙' },
         { label: 'Série', value: `${streak} 🔥` },
         { label: 'Nejdelší řetěz', value: `×${this.state.stats.maxCascade}` },
+      ]),
+      againLabel: LABELS.done,
+      againIcon: UI_ICONS.check,
+      actions: [
+        { label: LABELS.again, value: 'retry', variant: 'secondary', icon: LABEL_ICONS.again },
+        { label: 'Mapa', value: 'map', variant: 'ghost', icon: MAP_ICON },
       ],
-      againLabel: 'Mapa úrovní',
-      againIcon: UI_ICONS.grid,
-      actions: [{ label: 'Hrát znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
-      menuHref: null,
-      menuLabel: 'Domů',
       container: this.el,
-      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
-    if (choice === 'again') this.nav.go('#/mapa');
+    if (choice === 'again') this.nav.go('#/');
     else if (choice === 'retry') this.nav.go('#/denni', true);
-    else this.nav.go('#/');
+    else if (choice === 'map') this.nav.go('#/mapa');
   }
 
   private async loseLevel() {
@@ -984,7 +1000,7 @@ export class GameScreen {
     );
     const cost = EXTRA_COST * (this.extraBought + 1);
     const coins = store.get('coins');
-    const actions: { label: string; value: string; variant?: 'primary' | 'secondary' | 'ghost' | 'soft' }[] = [];
+    const actions: { label: string; value: string; variant?: 'primary' | 'secondary' | 'ghost' | 'soft'; icon?: string }[] = [];
     const parts: Node[] = [chips];
     if (coins >= cost) actions.push({ label: `+${EXTRA_MOVES} tahů · 🪙 ${cost}`, value: 'extra', variant: 'soft' });
     else {
@@ -998,16 +1014,17 @@ export class GameScreen {
         ),
       );
     }
-    const extra = this.resultsExtra(fresh, parts);
+    actions.push(this.daily ? { label: LABELS.home, value: 'home', variant: 'ghost', icon: LABEL_ICONS.home } : { label: 'Mapa', value: 'home', variant: 'ghost', icon: MAP_ICON });
+    const extra = this.resultsExtra(parts);
     const choice = await showResults({
       title: 'Došly tahy',
+      stats: this.statsWith(fresh, []),
       subtitle: 'Tohle ještě chybělo:',
       score: this.state.score,
       lost: true,
-      againLabel: 'Hrát znovu',
+      againLabel: LABELS.again,
+      againIcon: LABEL_ICONS.again,
       actions,
-      menuHref: null,
-      menuLabel: this.daily ? 'Domů' : 'Mapa',
       container: this.el,
       ...(extra ? { extra } : {}),
     });
@@ -1023,7 +1040,7 @@ export class GameScreen {
       return;
     }
     if (choice === 'again') this.nav.go(this.daily ? '#/denni' : `#/uroven/${level.id}`, true);
-    else this.nav.go(this.daily ? '#/' : '#/mapa');
+    else if (choice === 'home') this.nav.go(this.daily ? '#/' : '#/mapa');
   }
 
   private async endTimed() {
@@ -1046,7 +1063,6 @@ export class GameScreen {
     addCoins(coins);
     const fresh = this.commitGame(false);
     this.reportActivity();
-    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: isNewBest && prevBest > 0 ? 'Nový rekord!' : 'Čas vypršel!',
       subtitle: `${DIFFICULTIES.find((d) => d.id === this.diff)?.label ?? ''} · ${TIMED_SECONDS} s`,
@@ -1054,20 +1070,19 @@ export class GameScreen {
       best: Math.max(prevBest, score),
       isNewBest: isNewBest && prevBest > 0,
       stars,
-      stats: [
+      stats: this.statsWith(fresh, [
         { label: 'Mince', value: `+${coins}`, icon: '🪙' },
-        { label: 'Tahů', value: this.state.movesMade },
         { label: 'Nejdelší řetěz', value: `×${this.state.stats.maxCascade}` },
-      ],
-      againLabel: 'Hrát znovu',
-      menuHref: null,
-      menuLabel: 'Domů',
+        { label: 'Tahů', value: this.state.movesMade },
+      ]),
+      againLabel: LABELS.again,
+      againIcon: LABEL_ICONS.again,
+      actions: [{ label: LABELS.home, value: 'home', variant: 'ghost', icon: LABEL_ICONS.home }],
       container: this.el,
-      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'again') void this.startTimed(true);
-    else this.nav.go('#/');
+    else if (choice === 'home') this.nav.go('#/');
   }
 
   private async endRelax() {
@@ -1080,48 +1095,44 @@ export class GameScreen {
     addCoins(coins);
     const fresh = this.commitGame(false);
     this.reportActivity();
-    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: 'Hezká hra!',
       score,
       best: Math.max(prevBest, score),
       isNewBest: score > prevBest && prevBest > 0,
-      stats: [
+      stats: this.statsWith(fresh, [
         { label: 'Mince', value: `+${coins}`, icon: '🪙' },
         { label: 'Spojeno dílků', value: this.state.stats.cleared },
-      ],
-      againLabel: 'Hrát znovu',
-      menuHref: null,
-      menuLabel: 'Domů',
+      ]),
+      againLabel: LABELS.again,
+      againIcon: LABEL_ICONS.again,
+      actions: [{ label: LABELS.home, value: 'home', variant: 'ghost', icon: LABEL_ICONS.home }],
       container: this.el,
-      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'again') this.restart();
-    else this.nav.go('#/');
+    else if (choice === 'home') this.nav.go('#/');
   }
 
   /**
-   * Extra block for the results overlay: new achievements as badges (instead of toasts that would
-   * cover the buttons – QA SPOJ-03) plus any mode-specific parts.
+   * Results stats with new achievements as the last tile (kit rule: achievements belong into the stats, never
+   * toasts over the buttons – QA SPOJ-03). Keeps the tile count at 3 so phones show one row.
    */
-  private resultsExtra(fresh: Achievement[], parts: Node[] = []): HTMLElement | undefined {
-    if (!fresh.length && !parts.length) return undefined;
-    const wrap = h('div', { class: 'results-extra' }, ...parts);
-    if (fresh.length) {
-      wrap.append(
-        h(
-          'div',
-          { class: 'ach-new', role: 'status' },
-          h('span', { class: 'ach-new__label', html: `${UI_ICONS.trophy}<span>${fresh.length === 1 ? 'Nový úspěch' : 'Nové úspěchy'}</span>` }),
-          // at most two badges – the buttons must stay on screen; the rest waits in "Úspěchy"
-          ...fresh.slice(0, 2).map((a) => h('span', { class: 'ach-new__chip' }, h('span', { 'aria-hidden': 'true' }, a.emoji), ` ${a.name}`)),
-          fresh.length > 2 ? h('span', { class: 'ach-new__chip ach-new__more' }, `+${fresh.length - 2} další`) : null,
-        ),
-      );
-      setTimeout(() => gameSfx.play('star', { pitch: 2 }), 900);
-    }
-    return wrap;
+  private statsWith(fresh: Achievement[], stats: { label: string; value: string | number; icon?: string }[]) {
+    if (!fresh.length) return stats;
+    setTimeout(() => gameSfx.play('star', { pitch: 2 }), 900);
+    const tile = {
+      label: fresh.length === 1 ? 'Nový úspěch' : 'Nové úspěchy',
+      value: fresh.slice(0, 3).map((x) => x.emoji).join(' ') + (fresh.length > 3 ? ' …' : ''),
+      icon: '🏆',
+    };
+    return [...stats.slice(0, 2), tile];
+  }
+
+  /** extra block for the results overlay (mode-specific parts) */
+  private resultsExtra(parts: Node[] = []): HTMLElement | undefined {
+    if (!parts.length) return undefined;
+    return h('div', { class: 'results-extra' }, ...parts);
   }
 
   /** write this game's stats (only what wasn't written yet); returns newly unlocked achievements */
@@ -1154,15 +1165,10 @@ export class GameScreen {
     const next = LEVELS.find((l) => levelRecord(l.id).stars === 0);
     recordActivity('spojovacka', {
       progress: stars / MAX_STARS,
-      metric: { label: 'Hvězdy', value: `${stars} / ${MAX_STARS}` },
+      metric: { value: stars, of: MAX_STARS, unit: ['hvězda', 'hvězdy', 'hvězd'] },
       note: next ? `Úroveň ${next.id}` : 'Všechny úrovně hotové',
+      href: next ? `/spojovacka/#/uroven/${next.id}` : '/spojovacka/#/mapa',
     });
-  }
-
-  /** open "how to play" (appbar ? button) */
-  static howTo() {
-    const d = openDialog({ title: 'Jak hrát', content: howToContent(store.get('pieceTheme')), wide: true, actions: [{ label: 'Rozumím', variant: 'primary' }] });
-    return d.closed;
   }
 
   /* ---------------- debug / automation hook ---------------- */

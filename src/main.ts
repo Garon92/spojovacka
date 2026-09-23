@@ -1,12 +1,23 @@
 import './kit/kit.css';
 import './style.css';
-import { UI_ICONS, confirmDialog, getSettings, h, openSettingsDialog, setSettings, toast } from './kit';
+import {
+  UI_ICONS,
+  appTitle,
+  appbarPauseButton,
+  confirmDialog,
+  guardLeave,
+  h,
+  resetApp,
+  setHelp,
+  setSettingsSection,
+  showHelp,
+} from './kit';
 import { sfx as gameSfx } from './audio/sfx';
 import { LEVELS } from './core/levels';
 import { isUnlocked, store } from './app/save';
 import { PIECE_THEMES, type PieceTheme } from './render/palette';
 import { tileIcon } from './render/sprites';
-import { gem } from './ui/content';
+import { gem, howToContent } from './ui/content';
 import { GameScreen } from './ui/gameScreen';
 import type { Nav } from './ui/nav';
 import { HomeScreen, MapScreen, PetsScreen, TrophiesScreen } from './ui/screens';
@@ -65,7 +76,9 @@ function route() {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const [a, b] = parts;
   if (a === 'jak-hrat') {
-    void GameScreen.howTo().then(() => nav.go(lastNonHelp));
+    const d = showHelp();
+    if (d) void d.closed.then(() => nav.go(lastNonHelp));
+    else nav.go(lastNonHelp);
     return;
   }
   lastNonHelp = hash;
@@ -98,19 +111,29 @@ function route() {
   }
 }
 
-/* ---------------- appbar: help + app specific settings ---------------- */
+/* ---------------- family contract (kit v0.7) ---------------- */
 
-const appbar = document.querySelector('g92-appbar')!;
-appbar.addEventListener('g92-help', (e) => {
-  e.preventDefault(); // our own illustrated help instead of the kit's default
-  if (current === 'game') void game.pause();
-  void GameScreen.howTo();
-});
-appbar.addEventListener('g92-settings', (e) => {
-  e.preventDefault();
-  // settings cover the board → pause running games (timer!) like help does (QA SPOJ-04)
-  if (current === 'game') void game.pause();
-  openSettingsDialog({ extra: settingsExtra() });
+document.documentElement.classList.add('g92-game');
+document.title = appTitle('spojovacka');
+
+/** "?" → kit help dialog ("Jak hrát") with our illustrated content; rebuilt when the piece style changes */
+function registerHelp() {
+  setHelp({ extra: howToContent(store.get('pieceTheme')) });
+}
+registerHelp();
+
+/** ⚙ → kit settings dialog with the Spojovačka section (kit dialogs pause the game via autoPause) */
+setSettingsSection({ extra: () => settingsExtra(), nameMode: 'hidden' });
+
+/** pause lives in the appbar; visible only while a game runs */
+const pauseBtn = appbarPauseButton(() => void game.pause());
+pauseBtn.hidden = true;
+game.onRunningChange = (running) => (pauseBtn.hidden = !running);
+
+/** "Menu" during a running game: pause + "Odejít do menu? Rozehraná hra se neuloží." */
+guardLeave({
+  isActive: () => current === 'game' && game.isRunning(),
+  onPause: () => void game.pause(),
 });
 
 function settingsExtra(): HTMLElement {
@@ -126,6 +149,7 @@ function settingsExtra(): HTMLElement {
       if (!input.checked) return;
       store.set('pieceTheme', t.id as PieceTheme);
       game.setPieceTheme();
+      registerHelp();
       if (current === 'home') home.render();
       gameSfx.play('select');
     });
@@ -154,26 +178,14 @@ function settingsExtra(): HTMLElement {
       danger: true,
     });
     if (!ok) return;
-    store.reset();
-    toast('Postup smazán. Začínáš znovu od úrovně 1.', { variant: 'accent' });
-    game.setPieceTheme();
-    route();
+    // removes every g92:spojovacka:* key and the menu's activity entry
+    resetApp('spojovacka');
+    location.hash = '#/';
+    location.reload();
   });
   wrap.append(reset);
   return wrap;
 }
-
-/* ---------------- keyboard: M = mute ---------------- */
-
-window.addEventListener('keydown', (e) => {
-  const t = e.target as HTMLElement | null;
-  if (e.ctrlKey || e.metaKey || e.altKey || (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  if (e.key === 'm' || e.key === 'M') {
-    const on = !getSettings().sound;
-    setSettings({ sound: on });
-    toast(on ? 'Zvuk zapnutý' : 'Zvuk vypnutý', { duration: 1500 });
-  }
-});
 
 /* ---------------- audio unlock ---------------- */
 

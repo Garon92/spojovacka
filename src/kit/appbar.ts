@@ -8,7 +8,8 @@
  * Attributes
  *   app          app id from apps.ts (name, icon, accent)            required
  *   heading      title override (default: app name)
- *   back         href of the back link (default "/menu/"; "none" hides it; hidden for app="menu")
+ *   back         href of the back link (default "/menu/"; "none" hides it; hidden for app="menu" and in an
+ *                installed app launched on its own)
  *   back-label   text of the back link (default "Menu")
  *   fullscreen   show a fullscreen toggle; value may be a CSS selector of the element to fullscreen
  *   help         show a "?" button → dispatches `g92-help` (cancelable); default opens setHelp() content
@@ -17,11 +18,14 @@
  *   no-accent    don't set --accent on :root from the registry
  *   no-activity  don't record "last opened" in activity.ts
  *   transparent  no background/border (for heroes / game screens)
+ *   keys         global shortcuts: M sound, F fullscreen, ? help (P/Esc pause stay with the app)
  * Slots
  *   actions      extra buttons, placed before the built-in ones
  *   title        replaces the icon + title block
  *   start        after the back link (e.g. a breadcrumb)
  * Events (bubbling, composed)
+ *   g92-back (cancelable)       "Menu" pressed; preventDefault() to handle it yourself. Otherwise the leave
+ *                               guard (nav.ts: guardLeave/setLeaveGuard) is asked, then goToMenu().
  *   g92-help (cancelable)       help button pressed; default: showHelp() if setHelp() was used
  *   g92-settings (cancelable)   settings pressed; preventDefault() to show your own UI
  *   g92-fullscreen              detail: { active: boolean }
@@ -35,8 +39,12 @@ import { applyAccent, getApp } from './apps';
 import { openSettingsDialog } from './dialog';
 import { getHelp, showHelp, syncAppbarHelp } from './help';
 import { UI_ICONS } from './dom';
+import { LABELS } from './labels';
+import { goToMenu, menuLinkAvailable } from './nav';
 import { getSettings, resolvedTheme, setSettings, subscribeSettings } from './settings';
 import { sfx } from './sfx';
+import { safeStorage } from './storage';
+import { toast } from './toast';
 
 const STYLE = /* css */ `
 :host {
@@ -158,6 +166,9 @@ a:focus:not(:focus-visible), button:focus:not(:focus-visible) { outline: none; }
 ::slotted([slot="actions"]) { flex: none; }
 ::slotted([slot="title"]) { flex: 1 1 auto; min-width: 0; }
 .btn svg, .icon svg { display: block; }
+/* very narrow: "Menu" label dropped (the grid icon stays — never a bare chevron) */
+.back.icon-only .label { display: none; }
+.back.icon-only { width: 44px; padding: 0; justify-content: center; }
 /* hidden twin of .name used to measure the title's natural width */
 .bar { position: relative; }
 .name.measure {
@@ -185,8 +196,7 @@ a:focus:not(:focus-visible), button:focus:not(:focus-visible) { outline: none; }
   .bar { gap: 4px; padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
   .actions { gap: 0; }
   .title { gap: 8px; padding-left: 2px; }
-  .back .label { display: none; }
-  .back { width: 44px; padding: 0; justify-content: center; }
+  .back { padding: 0 12px 0 10px; }
   .name { font-size: var(--g92-fs-md, 1rem); }
   .icon { width: 34px; height: 34px; border-radius: 11px; }
   .icon svg { width: 20px; height: 20px; }
@@ -236,12 +246,12 @@ export class G92Appbar extends HTMLElement {
     this.#root = this.attachShadow({ mode: 'open' });
     this.#root.innerHTML = `<style>${STYLE}</style>
 <header class="bar" part="bar">
-  <a class="back" part="back" href="/menu/"><span aria-hidden="true">${UI_ICONS.back}</span><span class="label">Menu</span></a>
+  <a class="back" part="back" href="/menu/"><span aria-hidden="true">${UI_ICONS.grid}</span><span class="label">${LABELS.menu}</span></a>
   <slot name="start"></slot>
   <slot name="title"><div class="title" part="title"><span class="icon" part="icon" aria-hidden="true"></span><span class="name" part="name"></span><span class="name measure" aria-hidden="true"></span></div></slot>
   <div class="actions" part="actions">
     <slot name="actions"></slot>
-    <button class="btn help" part="button" type="button" aria-label="Jak na to" title="Jak na to" hidden>${UI_ICONS.help}</button>
+    <button class="btn help" part="button" type="button" aria-label="${LABELS.help}" title="${LABELS.help}" hidden>${UI_ICONS.help}</button>
     <button class="btn sound" part="button" type="button" aria-label="Zvuk" title="Zvuk"></button>
     <button class="btn fs" part="button" type="button" aria-label="Celá obrazovka" title="Celá obrazovka" hidden>${UI_ICONS.fullscreen}</button>
     <button class="btn settings" part="button" type="button" aria-label="Nastavení" title="Nastavení">${UI_ICONS.settings}</button>
@@ -275,8 +285,18 @@ export class G92Appbar extends HTMLElement {
     this.#els.settings.addEventListener('click', () => {
       sfx.tap();
       const ev = new CustomEvent('g92-settings', { bubbles: true, composed: true, cancelable: true });
-      if (this.dispatchEvent(ev)) openSettingsDialog();
+      if (this.dispatchEvent(ev)) openSettingsDialog({ appId: this.app || undefined });
     });
+    this.#els.back.addEventListener('click', (e) => {
+      // new tab / window: let the browser do it
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      sfx.tap();
+      const href = this.#els.back.getAttribute('href') ?? '/menu/';
+      const ev = new CustomEvent('g92-back', { bubbles: true, composed: true, cancelable: true, detail: { href } });
+      if (this.dispatchEvent(ev)) void goToMenu({ href });
+    });
+    this.#root.querySelector('slot[name="actions"]')?.addEventListener('slotchange', () => this.#scheduleFit());
   }
 
   connectedCallback(): void {
@@ -293,7 +313,10 @@ export class G92Appbar extends HTMLElement {
     if (!this.#ro && typeof ResizeObserver !== 'undefined') {
       this.#ro = new ResizeObserver(() => this.#scheduleFit());
       this.#ro.observe(this.#root.querySelector('.bar') as Element);
+      this.#ro.observe(this.#root.querySelector('.actions') as Element);
     }
+    document.addEventListener('keydown', this.#onKey);
+    this.#markOfflineReady();
     void document.fonts?.ready.then(() => this.#scheduleFit());
     const app = this.app;
     if (!this.#recorded && app && app !== 'menu' && !this.hasAttribute('no-activity') && getApp(app)) {
@@ -309,6 +332,37 @@ export class G92Appbar extends HTMLElement {
     this.#offSettings = null;
     document.removeEventListener('fullscreenchange', this.#onFsChange);
     document.removeEventListener('webkitfullscreenchange', this.#onFsChange);
+    document.removeEventListener('keydown', this.#onKey);
+  }
+
+  /** Global shortcuts (only with the `keys` attribute): M sound, F fullscreen, ? help. */
+  #onKey = (e: KeyboardEvent) => {
+    if (!this.hasAttribute('keys') || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (document.querySelector('dialog[open]')) return;
+    const k = e.key;
+    if (k === 'm' || k === 'M') {
+      e.preventDefault();
+      this.#els.sound.click();
+    } else if ((k === 'f' || k === 'F') && !this.#els.fs.hidden) {
+      e.preventDefault();
+      void this.toggleFullscreen();
+    } else if (k === '?' && !this.#els.help.hidden) {
+      e.preventDefault();
+      this.#els.help.click();
+    }
+  };
+
+  /** Remember that this app works offline (its service worker is active) — the menu reads it. */
+  #markOfflineReady(): void {
+    const app = this.app;
+    if (!app || typeof navigator === 'undefined' || !navigator.serviceWorker) return;
+    void navigator.serviceWorker.ready
+      .then((reg) => {
+        if (reg.active && location.pathname.startsWith(new URL(reg.scope).pathname)) safeStorage.setItem(`g92:${app}:offline`, '1');
+      })
+      .catch(() => undefined);
   }
 
   attributeChangedCallback(): void {
@@ -376,12 +430,13 @@ export class G92Appbar extends HTMLElement {
     e.name.textContent = title;
     e.measure.textContent = title;
     const back = this.getAttribute('back');
-    const hideBack = back === 'none' || (appId === 'menu' && !back);
+    const customBack = Boolean(back && back !== 'none' && back !== '/menu/');
+    const hideBack = back === 'none' || (appId === 'menu' && !back) || (!customBack && !menuLinkAvailable());
     e.back.hidden = hideBack;
     e.back.href = back && back !== 'none' ? back : '/menu/';
     const backLabel = this.getAttribute('back-label') || 'Menu';
     e.backLabel.textContent = backLabel;
-    e.back.setAttribute('aria-label', `Zpět: ${backLabel}`);
+    e.back.setAttribute('aria-label', customBack ? `Zpět: ${backLabel}` : `${backLabel} – všechny hry a cvičení`);
     e.help.hidden = !this.hasAttribute('help');
     e.sound.hidden = this.hasAttribute('no-sound');
     e.settings.hidden = this.hasAttribute('no-settings');
@@ -396,17 +451,34 @@ export class G92Appbar extends HTMLElement {
     this.#fitRaf = requestAnimationFrame(() => this.#fit());
   }
 
-  /** Collapse the title to the icon tile when it would be truncated next to all actions. */
+  /**
+   * Narrow screens, in this order: 1) collapse the title to the icon tile when the name would be truncated,
+   * 2) if the bar still overflows, drop the "Menu" label (the grid icon stays).
+   */
   #fit(): void {
     const e = this.#els;
-    if (!this.isConnected || this.querySelector('[slot="title"]')) return;
-    const titleCs = getComputedStyle(e.title);
-    const gap = parseFloat(titleCs.columnGap) || 0;
-    const iconW = e.icon.offsetWidth ? e.icon.offsetWidth + gap : 0;
-    const available = e.title.clientWidth - (parseFloat(titleCs.paddingLeft) || 0) - iconW;
-    const natural = e.measure.getBoundingClientRect().width;
-    const collapse = natural > 0 && natural > available + 0.5 && iconW > 0;
-    e.name.classList.toggle('is-collapsed', collapse);
+    if (!this.isConnected) return;
+    const bar = this.#root.querySelector('.bar') as HTMLElement;
+    const customTitle = Boolean(this.querySelector('[slot="title"]'));
+    // A: everything visible
+    e.back.classList.remove('icon-only');
+    e.name.classList.remove('is-collapsed');
+    let collapse = false;
+    if (!customTitle) {
+      const titleCs = getComputedStyle(e.title);
+      const gap = parseFloat(titleCs.columnGap) || 0;
+      const iconW = e.icon.offsetWidth ? e.icon.offsetWidth + gap : 0;
+      const available = e.title.clientWidth - (parseFloat(titleCs.paddingLeft) || 0) - iconW;
+      const natural = e.measure.getBoundingClientRect().width;
+      collapse = natural > 0 && natural > available + 0.5 && iconW > 0;
+      // B: name → icon tile only
+      e.name.classList.toggle('is-collapsed', collapse);
+    }
+    // C: still no room (title squeezed below the icon tile or bar overflowing) → icon-only "Menu"
+    const iconNeed = customTitle ? 0 : e.icon.offsetWidth;
+    if (!e.back.hidden && (bar.scrollWidth > bar.clientWidth + 1 || (!customTitle && e.title.clientWidth + 0.5 < iconNeed))) {
+      e.back.classList.add('icon-only');
+    }
     this.toggleAttribute('data-title-collapsed', collapse);
     if (collapse) e.title.setAttribute('title', e.name.textContent ?? '');
     else e.title.removeAttribute('title');
@@ -442,6 +514,51 @@ export class G92Appbar extends HTMLElement {
     }
     meta.content = resolvedTheme() === 'dark' ? '#161a2f' : '#ffffff';
   }
+}
+
+export interface AppbarActionOptions {
+  /** SVG string (use UI_ICONS / LABEL_ICONS) */
+  icon: string;
+  /** accessible name + tooltip */
+  label: string;
+  onClick: (e: MouseEvent) => void;
+  /** target appbar (default: the first <g92-appbar>) */
+  appbar?: Element | null;
+  /** insert as the first action (default: last of the slotted ones) */
+  first?: boolean;
+}
+
+/**
+ * Add a button to the appbar's actions slot with the kit look (same size/colour as ?, 🔊, ⚙).
+ * Games put their PAUSE button here — see appbarPauseButton().
+ */
+export function appbarAction(o: AppbarActionOptions): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.slot = 'actions';
+  btn.className = 'g92-appbar-action';
+  btn.setAttribute('aria-label', o.label);
+  btn.title = o.label;
+  btn.innerHTML = o.icon;
+  btn.addEventListener('click', (e) => o.onClick(e));
+  const bar = o.appbar ?? document.querySelector('g92-appbar');
+  if (bar) {
+    if (o.first) bar.prepend(btn);
+    else bar.append(btn);
+  }
+  return btn;
+}
+
+/** The family pause button (appbar, left of ?/🔊/⚙). Toggle `btn.hidden` when no game is running. */
+export function appbarPauseButton(onPause: () => void, appbar?: Element | null): HTMLButtonElement {
+  return appbarAction({ icon: UI_ICONS.pause, label: LABELS.pause, onClick: () => onPause(), appbar, first: true });
+}
+
+// A failed save (localStorage full) must not be silent — progress would vanish on reload.
+if (typeof window !== 'undefined') {
+  window.addEventListener('g92-storage-error', () => {
+    toast('Nepodařilo se uložit postup — úložiště prohlížeče je plné.', { variant: 'danger', icon: UI_ICONS.cross, duration: 6000 });
+  });
 }
 
 export function defineAppbar(): void {

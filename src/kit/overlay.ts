@@ -3,7 +3,7 @@
  *
  *   const { difficulty } = await showStart({
  *     appId: 'tanky',
- *     difficulties: [{ id: 'easy', label: 'Lehká', icon: '🐢' }, { id: 'normal', label: 'Střední', icon: '🐇' }, { id: 'hard', label: 'Těžká', icon: '🔥' }],
+ *     difficulties: [...DIFFICULTIES_3],                     // Lehká 🐢 · Normální 🐇 · Těžká 🔥 (labels.ts)
  *     difficulty: store.get('difficulty'),
  *     best: { label: 'Rekord', value: store.get('best') },
  *     howTo: [{ icon: '👆', text: 'Klepni a miř' }, { icon: '💥', text: 'Pusť a vystřel' }],
@@ -11,7 +11,7 @@
  *   });
  *   await countdown();
  *   // … game …
- *   const choice = await showPause({ onRestart… });           // 'resume' | 'restart' | 'menu'
+ *   const choice = await showPause({ quit: true });            // 'resume' | 'restart' | 'quit' | 'menu'
  *   const next = await showResults({ score, best, isNewBest, stars: 2, stats: [{ label: 'Přesnost', value: '92 %' }] });  // 'again' | 'menu'
  *
  * Every show* returns a Promise with extra `el` and `close(value)` (e.g. close the pause overlay from your own Esc handler).
@@ -23,7 +23,10 @@ import { UI_ICONS, h, starsHTML } from './dom';
 import { prefersReducedMotion } from './settings';
 import { sfx } from './sfx';
 import { formatMetric } from './activity';
+import { plural } from './cz';
 import { setHelp } from './help';
+import { HELP_TITLE_GAME, LABELS, LABEL_ICONS } from './labels';
+import { goToMenu } from './nav';
 
 export type OverlayPromise<T> = Promise<T> & { el: HTMLElement; close: (value: T) => void };
 
@@ -86,21 +89,26 @@ export interface StartResult {
 export interface PauseOptions extends OverlayBaseOptions {
   title?: string;
   subtitle?: string;
-  /** hide "Začít znovu" */
+  /** hide "Hrát znovu" */
   noRestart?: boolean;
+  /** add "Ukončit hru" (resolves 'quit' → go to your in-app home); pass a string to relabel */
+  quit?: boolean | string;
+  /** hide "Menu" (e.g. when "Ukončit hru" is the way out) */
+  noMenu?: boolean;
   /** where "Menu" goes; null = just resolve 'menu' (default '/menu/') */
   menuHref?: string | null;
   menuLabel?: string;
   stats?: { label: string; value: number | string }[];
 }
 
-export type PauseChoice = 'resume' | 'restart' | 'menu';
+export type PauseChoice = 'resume' | 'restart' | 'menu' | 'quit';
 
 export interface ResultsOptions extends OverlayBaseOptions {
   title?: string;
   subtitle?: string;
   score?: number | string;
-  scoreLabel?: string;
+  /** unit under the score: one string, or Czech plural forms [one, few, many] (default ['bod', 'body', 'bodů']) */
+  scoreLabel?: string | readonly [string, string, string];
   best?: number | string | null;
   bestLabel?: string;
   isNewBest?: boolean;
@@ -109,7 +117,7 @@ export interface ResultsOptions extends OverlayBaseOptions {
   maxStars?: number;
   stats?: { label: string; value: number | string; icon?: string }[];
   againLabel?: string;
-  /** icon (SVG string) of the primary button; default UI_ICONS.restart — e.g. UI_ICONS.arrowRight for "Další úroveň" */
+  /** icon (SVG string) of the primary button; default UI_ICONS.restart — for "Další úroveň" use LABELS.next + LABEL_ICONS.next */
   againIcon?: string;
   /** where "Menu" goes; null = just resolve 'menu' (default '/menu/') */
   menuHref?: string | null;
@@ -211,7 +219,7 @@ function isTyping(e: KeyboardEvent): boolean {
 export function showStart(opts: StartOptions = {}): OverlayPromise<StartResult> {
   const app = getApp(opts.appId ?? document.querySelector('g92-appbar')?.getAttribute('app'));
   let difficulty = opts.difficulty ?? opts.difficulties?.[0]?.id;
-  if (opts.helpInAppbar && (opts.howTo?.length || opts.keys?.length)) setHelp({ title: 'Jak hrát', howTo: opts.howTo, keys: opts.keys });
+  if (opts.helpInAppbar && (opts.howTo?.length || opts.keys?.length)) setHelp({ title: HELP_TITLE_GAME, howTo: opts.howTo, keys: opts.keys });
 
   return mount<StartResult>(
     { backdrop: 'solid', ...opts, className: `${opts.compact ? 'g92-overlay--compact ' : ''}${opts.className ?? ''}`.trim() || undefined },
@@ -254,7 +262,7 @@ export function showStart(opts: StartOptions = {}): OverlayPromise<StartResult> 
       }
 
       const play = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block g92-overlay__play', 'data-primary': true, html: UI_ICONS.play });
-      play.append(opts.playLabel ?? 'Hrát');
+      play.append(opts.playLabel ?? LABELS.play);
       play.addEventListener('click', () => {
         sfx.pop();
         close({ difficulty });
@@ -265,10 +273,10 @@ export function showStart(opts: StartOptions = {}): OverlayPromise<StartResult> 
       const howView = h('div', { class: 'g92-overlay__view', hidden: true });
       if (hasHowTo) {
         const howBtn = h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--lg g92-btn--block', html: UI_ICONS.help });
-        howBtn.append('Jak hrát');
+        howBtn.append(HELP_TITLE_GAME);
         actions.append(howBtn);
 
-        howView.append(h('div', { class: 'g92-overlay__icon g92-overlay__icon--sm', html: UI_ICONS.help, 'aria-hidden': 'true' }), h('h2', { class: 'g92-overlay__title g92-overlay__title--sm' }, 'Jak hrát'));
+        howView.append(h('div', { class: 'g92-overlay__icon g92-overlay__icon--sm', html: UI_ICONS.help, 'aria-hidden': 'true' }), h('h2', { class: 'g92-overlay__title g92-overlay__title--sm' }, HELP_TITLE_GAME));
         if (opts.howTo?.length) {
           const steps = h('ol', { class: 'g92-howto' });
           opts.howTo.forEach((s, i) =>
@@ -286,12 +294,15 @@ export function showStart(opts: StartOptions = {}): OverlayPromise<StartResult> 
           howView.append(list);
         }
         const backBtn = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block', html: UI_ICONS.check });
-        backBtn.append('Rozumím');
+        backBtn.append(LABELS.gotIt);
         howView.append(h('div', { class: 'g92-overlay__actions' }, backBtn));
 
         const showHow = (on: boolean) => {
           main.hidden = on;
           howView.hidden = !on;
+          // the visible view's main button is the primary one (Enter, focus, tests)
+          backBtn.toggleAttribute('data-primary', on);
+          play.toggleAttribute('data-primary', !on);
           (on ? backBtn : play).focus({ preventScroll: true });
         };
         howBtn.addEventListener('click', () => {
@@ -336,12 +347,12 @@ export function showPause(opts: PauseOptions = {}): OverlayPromise<PauseChoice> 
     (close, panel) => {
       panel.append(
         h('div', { class: 'g92-overlay__icon g92-overlay__icon--sm', html: UI_ICONS.pause, 'aria-hidden': 'true' }),
-        h('h2', { class: 'g92-overlay__title' }, opts.title ?? 'Pauza'),
+        h('h2', { class: 'g92-overlay__title' }, opts.title ?? LABELS.pause),
       );
       if (opts.subtitle) panel.append(h('p', { class: 'g92-overlay__subtitle' }, opts.subtitle));
       if (opts.stats?.length) panel.append(statsEl(opts.stats));
-      const resume = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block', 'data-primary': true, html: UI_ICONS.play });
-      resume.append('Pokračovat');
+      const resume = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block', 'data-primary': true, html: LABEL_ICONS.resume });
+      resume.append(LABELS.resume);
       resume.addEventListener('click', () => {
         sfx.pop();
         close('resume');
@@ -349,15 +360,24 @@ export function showPause(opts: PauseOptions = {}): OverlayPromise<PauseChoice> 
       const actions = h('div', { class: 'g92-overlay__actions' }, resume);
       const row = h('div', { class: 'g92-overlay__row' });
       if (!opts.noRestart) {
-        const restart = h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--lg', html: UI_ICONS.restart });
-        restart.append('Znovu');
+        const restart = h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--lg', html: LABEL_ICONS.again });
+        restart.append(LABELS.again);
         restart.addEventListener('click', () => {
           sfx.tap();
           close('restart');
         });
         row.append(restart);
       }
-      row.append(menuButton(opts.menuHref, opts.menuLabel, () => close('menu')));
+      if (opts.quit) {
+        const quit = h('button', { type: 'button', class: 'g92-btn g92-btn--ghost g92-btn--lg', html: LABEL_ICONS.home });
+        quit.append(typeof opts.quit === 'string' ? opts.quit : LABELS.quit);
+        quit.addEventListener('click', () => {
+          sfx.tap();
+          close('quit');
+        });
+        row.append(quit);
+      }
+      if (!opts.noMenu) row.append(menuButton(opts.menuHref, opts.menuLabel, () => close('menu')));
       actions.append(row);
       panel.append(actions);
     },
@@ -373,17 +393,23 @@ export function showPause(opts: PauseOptions = {}): OverlayPromise<PauseChoice> 
   );
 }
 
+/** "Menu" = leave the app (grid icon). An explicit choice in pause/results → no second confirmation. */
 function menuButton(href: string | null | undefined, label: string | undefined, onClick: () => void): HTMLElement {
   const target = href === undefined ? '/menu/' : href;
   const b = h(target ? 'a' : 'button', {
     class: 'g92-btn g92-btn--ghost g92-btn--lg',
-    html: target === '/menu/' ? UI_ICONS.grid : UI_ICONS.back,
+    // "Menu" always means leaving the app → grid icon (a custom href is some other "back")
+    html: target === null || target === '/menu/' ? LABEL_ICONS.menu : UI_ICONS.back,
     ...(target ? { href: target } : { type: 'button' }),
   });
-  b.append(label ?? 'Menu');
-  b.addEventListener('click', () => {
+  b.append(label ?? LABELS.menu);
+  b.addEventListener('click', (e) => {
     sfx.tap();
     onClick();
+    if (target && !(e instanceof MouseEvent && (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey))) {
+      e.preventDefault();
+      void goToMenu({ href: target, skipGuard: true });
+    }
   });
   return b;
 }
@@ -419,6 +445,7 @@ export function showResults(opts: ResultsOptions = {}): OverlayPromise<ResultsCh
     opts,
     'results',
     (close, panel) => {
+      const titleSaysBest = !opts.title && Boolean(opts.isNewBest);
       const title =
         opts.title ??
         (opts.isNewBest ? 'Nový rekord!' : stars !== undefined ? (STAR_TITLES[Math.round((stars / maxStars) * 3)] ?? 'Hotovo!') : opts.lost ? 'Konec hry' : 'Hotovo!');
@@ -432,19 +459,20 @@ export function showResults(opts: ResultsOptions = {}): OverlayPromise<ResultsCh
 
       if (opts.score !== undefined) {
         const scoreEl = h('div', { class: 'g92-overlay__score g92-tabular' }, typeof opts.score === 'number' ? '0' : opts.score);
-        const scoreBox = h('div', { class: 'g92-overlay__scorebox' }, scoreEl, h('div', { class: 'g92-overlay__score-label' }, opts.scoreLabel ?? 'bodů'));
+        const scoreBox = h('div', { class: 'g92-overlay__scorebox' }, scoreEl, h('div', { class: 'g92-overlay__score-label' }, scoreUnit(opts.score, opts.scoreLabel)));
         panel.append(scoreBox);
         if (typeof opts.score === 'number') countUp(scoreEl, opts.score);
       }
       if (opts.isNewBest) {
-        panel.append(h('div', { class: 'g92-badge g92-badge--solid g92-overlay__newbest', html: `${UI_ICONS.sparkle}<span>Nový rekord</span>` }));
+        // the title already says it → no duplicate badge
+        if (!titleSaysBest) panel.append(h('div', { class: 'g92-badge g92-badge--solid g92-overlay__newbest', html: `${UI_ICONS.sparkle}<span>Nový rekord</span>` }));
       } else if (opts.best !== undefined && opts.best !== null && opts.best !== '') {
         panel.append(h('div', { class: 'g92-overlay__best', html: `${UI_ICONS.trophy}<span>${escapeHTML(opts.bestLabel ?? 'Rekord')}: <b>${escapeHTML(formatMetric(opts.best))}</b></span>` }));
       }
       if (opts.stats?.length) panel.append(statsEl(opts.stats));
 
       const again = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block', 'data-primary': true, html: opts.againIcon ?? UI_ICONS.restart });
-      again.append(opts.againLabel ?? 'Hrát znovu');
+      again.append(opts.againLabel ?? LABELS.again);
       again.addEventListener('click', () => {
         sfx.pop();
         close('again');
@@ -483,6 +511,15 @@ export function showResults(opts: ResultsOptions = {}): OverlayPromise<ResultsCh
     }, 150);
   }
   return p;
+}
+
+const POINTS: readonly [string, string, string] = ['bod', 'body', 'bodů'];
+
+function scoreUnit(score: number | string, label: ResultsOptions['scoreLabel']): string {
+  const forms = label === undefined ? POINTS : label;
+  if (typeof forms === 'string') return forms;
+  const n = typeof score === 'number' ? score : Number(String(score).replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? plural(n, forms[0], forms[1], forms[2]) : forms[2];
 }
 
 function countUp(el: HTMLElement, to: number): void {
@@ -539,18 +576,24 @@ export function countdown(opts: CountdownOptions = {}): Promise<void> {
 // Auto-pause
 // ---------------------------------------------------------------------------
 
-/** Call `pause` when the page is hidden or loses focus. Returns an unsubscribe function. */
-export function autoPause(pause: () => void, opts: { onBlur?: boolean } = {}): () => void {
+/**
+ * Call `pause` when the page is hidden, loses focus, or a kit dialog opens (help, settings, confirm —
+ * `g92-dialog-open`). Returns an unsubscribe function. Opt out per source with the options.
+ */
+export function autoPause(pause: () => void, opts: { onBlur?: boolean; onDialog?: boolean } = {}): () => void {
   const onVis = () => {
     if (document.visibilityState === 'hidden') pause();
   };
   const onBlur = () => pause();
+  const onDialog = () => pause();
   document.addEventListener('visibilitychange', onVis);
   if (opts.onBlur ?? true) window.addEventListener('blur', onBlur);
+  if (opts.onDialog ?? true) document.addEventListener('g92-dialog-open', onDialog);
   window.addEventListener('pagehide', onBlur);
   return () => {
     document.removeEventListener('visibilitychange', onVis);
     window.removeEventListener('blur', onBlur);
+    document.removeEventListener('g92-dialog-open', onDialog);
     window.removeEventListener('pagehide', onBlur);
   };
 }

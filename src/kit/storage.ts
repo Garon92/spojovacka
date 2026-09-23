@@ -35,16 +35,19 @@ export const safeStorage = {
     }
     return memory.has(key) ? (memory.get(key) as string) : null;
   },
-  setItem(key: string, value: string): void {
+  /** Returns false when the value could not be persisted (quota full) — it is still kept in memory. */
+  setItem(key: string, value: string): boolean {
     memory.set(key, value);
     const s = ls();
     if (s) {
       try {
         s.setItem(key, value);
-      } catch {
-        /* quota or disabled: keep in memory */
+      } catch (e) {
+        reportWriteError(key, e);
+        return false;
       }
     }
+    return true;
   },
   removeItem(key: string): void {
     memory.delete(key);
@@ -76,6 +79,22 @@ export const safeStorage = {
   },
 };
 
+let reported = false;
+
+/**
+ * A write failed (usually QuotaExceededError — all g92 apps share ~5 MB on one origin).
+ * Dispatches `g92-storage-error` on window once per page; <g92-appbar> turns it into a toast.
+ */
+function reportWriteError(key: string, error: unknown): void {
+  if (reported || typeof window === 'undefined') return;
+  reported = true;
+  try {
+    window.dispatchEvent(new CustomEvent('g92-storage-error', { detail: { key, error } }));
+  } catch {
+    /* ignore */
+  }
+}
+
 /** JSON helpers that never throw. */
 export function readJSON<T>(key: string, fallback: T): T {
   const raw = safeStorage.getItem(key);
@@ -87,11 +106,13 @@ export function readJSON<T>(key: string, fallback: T): T {
   }
 }
 
-export function writeJSON(key: string, value: unknown): void {
+/** Returns false when the value could not be persisted. */
+export function writeJSON(key: string, value: unknown): boolean {
   try {
-    safeStorage.setItem(key, JSON.stringify(value));
+    return safeStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* non-serialisable: ignore */
+    return false;
   }
 }
 
@@ -99,4 +120,5 @@ export function writeJSON(key: string, value: unknown): void {
 export function __resetStorageForTests(): void {
   memory.clear();
   native = undefined;
+  reported = false;
 }

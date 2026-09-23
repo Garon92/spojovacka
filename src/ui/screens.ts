@@ -1,5 +1,5 @@
 import { LEVELS, WORLDS } from '../core/levels';
-import { UI_ICONS, confirmDialog, h, toast, sfx as kitSfx } from '../kit';
+import { LABELS, LABEL_ICONS, UI_ICONS, confirmDialog, h, toast, sfx as kitSfx } from '../kit';
 import { tileIcon } from '../render/sprites';
 import { Runner, SKINS, animalPortrait } from '../render/runner';
 import { MAX_STARS, dailyState, getStats, isUnlocked, levelRecord, nextLevel, store, totalStars } from '../app/save';
@@ -11,7 +11,7 @@ const fmt = (n: number) => n.toLocaleString('cs-CZ');
 
 /** in-app "home" – a labelled house pill, clearly different from the appbar's "‹ Menu" (QA SPOJ-07) */
 function homeButton() {
-  return h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--sm home-btn', html: UI_ICONS.home }, 'Domů');
+  return h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--sm home-btn', html: LABEL_ICONS.home }, LABELS.home);
 }
 
 function starsMini(n: number) {
@@ -53,7 +53,7 @@ export class HomeScreen {
       'button',
       { type: 'button', class: 'g92-btn g92-btn--xl home__play', 'data-primary': '' },
       h('span', { html: UI_ICONS.play, class: 'home__play-ico' }),
-      h('span', { class: 'home__play-txt' }, h('b', null, 'Hrát'), h('small', null, allDone ? 'Všechny úrovně splněny' : `Úroveň ${next}`)),
+      h('span', { class: 'home__play-txt' }, h('b', null, LABELS.play), h('small', null, allDone ? 'Všechny úrovně splněny' : `Úroveň ${next}`)),
     );
     play.addEventListener('click', () => {
       kitSfx.pop();

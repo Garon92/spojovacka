@@ -5,10 +5,15 @@
  *   await d.closed;
  *   if (await confirmDialog({ title: 'Smazat postup?', message: 'Nejde to vrátit.', danger: true })) …
  *   await alertDialog({ title: 'Hotovo!', message: 'Uloženo.' });
- *   openSettingsDialog();  // global g92 settings (sound, volume, theme, motion, name)
+ *   openSettingsDialog();  // global g92 settings (sound, volume, voice, theme, motion, name)
+ *
+ * Every kit dialog dispatches `g92-dialog-open` / `g92-dialog-close` on `document` (detail: { dialog, kind }).
+ * autoPause() and createLoop() react to them; apps with their own timers should listen too.
  */
+import { getApp } from './apps';
 import { UI_ICONS, bindRange, h } from './dom';
-import { getSettings, setSettings, subscribeSettings, type MotionSetting, type ThemeSetting } from './settings';
+import { LABELS, SETTINGS_LABELS } from './labels';
+import { getAppPlayerName, getSettings, setAppPlayerName, setSettings, subscribeSettings, type MotionSetting, type ThemeSetting } from './settings';
 import { sfx } from './sfx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'soft';
@@ -40,6 +45,8 @@ export interface DialogOptions {
   dismissValue?: string;
   onOpen?: (dialog: HTMLDialogElement) => void;
   onClose?: (value: string | undefined) => void;
+  /** reported in the g92-dialog-open/close events (e.g. 'help', 'settings', 'confirm') */
+  kind?: string;
 }
 
 export interface DialogHandle {
@@ -48,6 +55,39 @@ export interface DialogHandle {
   close(value?: string): void;
   /** resolves with the chosen action value (or dismissValue) */
   closed: Promise<string | undefined>;
+}
+
+const openDialogs = new Set<HTMLDialogElement>();
+
+/** Number of kit dialogs currently open (dialogs removed from the DOM without close() don't count). */
+function openCountNow(): number {
+  for (const d of openDialogs) if (!d.isConnected || !d.open) openDialogs.delete(d);
+  return openDialogs.size;
+}
+
+/** True while any kit dialog is open. */
+export function isDialogOpen(): boolean {
+  return openCountNow() > 0;
+}
+
+function emitDialog(type: 'g92-dialog-open' | 'g92-dialog-close', dialog: HTMLDialogElement, kind: string): void {
+  try {
+    document.dispatchEvent(new CustomEvent(type, { detail: { dialog, kind, open: openCountNow() } }));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Subscribe to kit dialogs opening/closing (open = true while at least one is open). */
+export function onDialogChange(fn: (open: boolean) => void): () => void {
+  const onOpen = () => fn(true);
+  const onClose = () => fn(openCountNow() > 0);
+  document.addEventListener('g92-dialog-open', onOpen);
+  document.addEventListener('g92-dialog-close', onClose);
+  return () => {
+    document.removeEventListener('g92-dialog-open', onOpen);
+    document.removeEventListener('g92-dialog-close', onClose);
+  };
 }
 
 const btnClass = (v: ButtonVariant = 'primary') => `g92-btn${v === 'primary' ? '' : ` g92-btn--${v}`}`;
@@ -69,6 +109,8 @@ export function openDialog(opts: DialogOptions): DialogHandle {
   let done = false;
   const previouslyFocused = document.activeElement as HTMLElement | null;
 
+  const kind = opts.kind ?? 'dialog';
+  let shown = false;
   const close = (value?: string) => {
     if (done) return;
     done = true;
@@ -81,6 +123,10 @@ export function openDialog(opts: DialogOptions): DialogHandle {
       }
       el.remove();
       previouslyFocused?.focus?.({ preventScroll: true });
+      if (shown) {
+        openDialogs.delete(el);
+        emitDialog('g92-dialog-close', el, kind);
+      }
       opts.onClose?.(value);
       resolve(value);
     };
@@ -151,6 +197,9 @@ export function openDialog(opts: DialogOptions): DialogHandle {
     if (done || !el.isConnected) return;
     el.showModal();
     openedAt = performance.now();
+    shown = true;
+    openDialogs.add(el);
+    emitDialog('g92-dialog-open', el, kind);
     // no explicit autofocus → focus the dialog itself (not the × button, which would show a focus ring)
     if (!el.querySelector('[autofocus]')) {
       el.tabIndex = -1;
@@ -171,19 +220,28 @@ export interface ConfirmOptions {
   message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** destructive action: red confirm button, and it is NEVER the default (focus stays on cancel) */
   danger?: boolean;
+  /** focus the confirm button instead of cancel (ignored when danger) */
+  defaultConfirm?: boolean;
   icon?: string;
 }
 
+/**
+ * Yes/no question. Safe by default: focus starts on the cancel button, so a stray Enter/Space
+ * (e.g. the answer key in a quiz) never confirms. Resolves true only for an explicit confirm.
+ */
 export async function confirmDialog(o: ConfirmOptions): Promise<boolean> {
+  const focusConfirm = Boolean(o.defaultConfirm && !o.danger);
   const d = openDialog({
     title: o.title,
     icon: o.icon,
+    kind: 'confirm',
     content: o.message ? h('p', { class: 'g92-muted' }, o.message) : undefined,
     dismissValue: 'cancel',
     actions: [
-      { label: o.cancelLabel ?? 'Zrušit', value: 'cancel', variant: 'secondary' },
-      { label: o.confirmLabel ?? 'Ano', value: 'ok', variant: o.danger ? 'danger' : 'primary', autofocus: true },
+      { label: o.cancelLabel ?? LABELS.cancel, value: 'cancel', variant: 'secondary', autofocus: !focusConfirm },
+      { label: o.confirmLabel ?? 'Ano', value: 'ok', variant: o.danger ? 'danger' : 'primary', autofocus: focusConfirm },
     ],
   });
   return (await d.closed) === 'ok';
@@ -193,6 +251,7 @@ export async function alertDialog(o: { title: string; message?: string; okLabel?
   const d = openDialog({
     title: o.title,
     icon: o.icon,
+    kind: 'alert',
     content: o.message ? h('p', { class: 'g92-muted' }, o.message) : undefined,
     actions: [{ label: o.okLabel ?? 'OK', autofocus: true }],
   });
@@ -203,13 +262,41 @@ export async function alertDialog(o: { title: string; message?: string; okLabel?
 // Settings dialog
 // ---------------------------------------------------------------------------
 
+export type NameMode = 'auto' | 'family' | 'app' | 'hidden';
+
 export interface SettingsDialogOptions {
-  /** extra app-specific section appended at the end */
-  extra?: Node;
-  /** hide the name field (e.g. apps that never show it) */
+  /** app-specific section appended at the end (Node, or a factory called on every open) */
+  extra?: Node | (() => Node);
+  /** app id — enables the per-app name row ("Jméno v této aplikaci") and per-app defaults */
+  appId?: string;
+  /**
+   * Name row: 'auto' (default) = per-app name when the app has an override, else the family name;
+   * 'family' = family name; 'app' = always the per-app name; 'hidden' = no row (apps with their own profiles).
+   */
+  nameMode?: NameMode;
+  /** @deprecated use nameMode: 'hidden' */
   hideName?: boolean;
+  /** show the "Předčítání" (automatic speech) switch; default: learning apps + menu */
+  showVoice?: boolean;
+  /** one extra row at the end, "Další nastavení…", for apps with a long settings page */
+  more?: { label?: string; href?: string; onClick?: () => void };
   /** heading override */
   title?: string;
+}
+
+export type SettingsSection = Omit<SettingsDialogOptions, 'title'>;
+
+let registeredSection: SettingsSection | null = null;
+
+/**
+ * Register the app's part of the settings dialog once (⚙ in <g92-appbar> then always opens the kit dialog
+ * with it): setSettingsSection({ extra: () => myNode, nameMode: 'hidden', more: { href: './nastaveni' } }).
+ */
+export function setSettingsSection(section: SettingsSection | null): () => void {
+  registeredSection = section;
+  return () => {
+    if (registeredSection === section) registeredSection = null;
+  };
 }
 
 function segmented<T extends string>(name: string, label: string, value: T, options: { value: T; label: string; icon?: string }[], onChange: (v: T) => void): HTMLElement {
@@ -226,10 +313,12 @@ function segmented<T extends string>(name: string, label: string, value: T, opti
 
 let settingsOpen: DialogHandle | null = null;
 
-export function openSettingsDialog(opts: SettingsDialogOptions = {}): DialogHandle {
+export function openSettingsDialog(options: SettingsDialogOptions = {}): DialogHandle {
   if (settingsOpen) return settingsOpen;
+  const opts: SettingsDialogOptions = { ...registeredSection, ...options };
   const s = getSettings();
   const uid = Math.random().toString(36).slice(2, 7);
+  const app = getApp(opts.appId);
 
   // sound
   const soundToggle = h('input', { type: 'checkbox', class: 'g92-toggle', role: 'switch', id: `g92-snd-${uid}` }) as HTMLInputElement;
@@ -241,7 +330,7 @@ export function openSettingsDialog(opts: SettingsDialogOptions = {}): DialogHand
     max: 100,
     step: 5,
     value: Math.round(s.volume * 100),
-    'aria-label': 'Hlasitost',
+    'aria-label': SETTINGS_LABELS.volume,
   }) as HTMLInputElement;
   volume.disabled = !s.sound;
   bindRange(volume);
@@ -260,55 +349,104 @@ export function openSettingsDialog(opts: SettingsDialogOptions = {}): DialogHand
   const soundSection = h(
     'div',
     { class: 'g92-field' },
-    h('label', { class: 'g92-switch-row', for: `g92-snd-${uid}` }, h('span', { class: 'g92-label' }, 'Zvuky'), soundToggle),
+    h('label', { class: 'g92-switch-row', for: `g92-snd-${uid}` }, h('span', { class: 'g92-label' }, SETTINGS_LABELS.sound), soundToggle),
     h('div', { class: 'g92-row', style: 'gap: var(--g92-space-3)' }, h('span', { html: UI_ICONS.soundOff, class: 'g92-muted', style: 'width:22px;flex:none' }), volume, h('span', { html: UI_ICONS.soundOn, class: 'g92-muted', style: 'width:22px;flex:none' })),
   );
 
-  const theme = segmented<ThemeSetting>(`g92-theme-${uid}`, 'Vzhled', s.theme, [
+  const content = h('div', { class: 'g92-stack g92-settings', style: '--g92-gap: var(--g92-space-5)' }, soundSection);
+
+  // automatic speech
+  const showVoice = opts.showVoice ?? (!app || app.category !== 'play');
+  let voiceToggle: HTMLInputElement | null = null;
+  if (showVoice) {
+    voiceToggle = h('input', { type: 'checkbox', class: 'g92-toggle', role: 'switch', id: `g92-voice-${uid}` }) as HTMLInputElement;
+    voiceToggle.checked = s.voice;
+    const vt = voiceToggle;
+    vt.addEventListener('change', () => setSettings({ voice: vt.checked }));
+    content.append(
+      h(
+        'div',
+        { class: 'g92-field' },
+        h('label', { class: 'g92-switch-row', for: `g92-voice-${uid}` }, h('span', { class: 'g92-label' }, SETTINGS_LABELS.voice), vt),
+        h('span', { class: 'g92-hint' }, 'Úkoly se samy čtou nahlas. Tlačítka pro poslech fungují vždy.'),
+      ),
+    );
+  }
+
+  const theme = segmented<ThemeSetting>(`g92-theme-${uid}`, SETTINGS_LABELS.theme, s.theme, [
     { value: 'auto', label: 'Auto', icon: UI_ICONS.auto },
     { value: 'light', label: 'Světlý', icon: UI_ICONS.sun },
     { value: 'dark', label: 'Tmavý', icon: UI_ICONS.moon },
   ], (v) => setSettings({ theme: v }));
 
-  const motion = segmented<MotionSetting>(`g92-motion-${uid}`, 'Animace (Auto = podle zařízení)', s.reducedMotion, [
+  const motion = segmented<MotionSetting>(`g92-motion-${uid}`, `${SETTINGS_LABELS.motion} (Auto = podle zařízení)`, s.reducedMotion, [
     { value: 'auto', label: 'Auto' },
     { value: 'on', label: 'Méně' },
     { value: 'off', label: 'Všechny' },
   ], (v) => setSettings({ reducedMotion: v }));
+  content.append(theme, motion);
 
-  const content = h('div', { class: 'g92-stack', style: '--g92-gap: var(--g92-space-5)' }, soundSection, theme, motion);
-
-  if (!opts.hideName) {
+  // name
+  let mode: NameMode = opts.hideName ? 'hidden' : (opts.nameMode ?? 'auto');
+  if (mode === 'auto') mode = opts.appId && getAppPlayerName(opts.appId) !== null ? 'app' : 'family';
+  if (mode === 'app' && !opts.appId) mode = 'family';
+  if (mode !== 'hidden') {
+    const perApp = mode === 'app' && opts.appId ? opts.appId : null;
     const name = h('input', {
       type: 'text',
       class: 'g92-input',
       id: `g92-name-${uid}`,
       maxlength: 40,
       autocomplete: 'nickname',
-      placeholder: 'Jak ti máme říkat?',
-      value: s.playerName,
+      placeholder: perApp ? s.playerName || 'Jak ti máme říkat?' : 'Jak ti máme říkat?',
+      value: perApp ? (getAppPlayerName(perApp) ?? '') : s.playerName,
     }) as HTMLInputElement;
-    name.addEventListener('input', () => setSettings({ playerName: name.value.trim() }));
-    content.append(h('div', { class: 'g92-field' }, h('label', { class: 'g92-label', for: `g92-name-${uid}` }, 'Jméno hráče'), name));
+    name.addEventListener('input', () => {
+      if (perApp) setAppPlayerName(perApp, name.value);
+      else setSettings({ playerName: name.value.trim() });
+    });
+    const field = h('div', { class: 'g92-field' }, h('label', { class: 'g92-label', for: `g92-name-${uid}` }, perApp ? SETTINGS_LABELS.appName : SETTINGS_LABELS.name), name);
+    if (perApp) field.append(h('span', { class: 'g92-hint' }, s.playerName ? `Ostatní aplikace používají jméno ${s.playerName}.` : 'Platí jen v této aplikaci.'));
+    content.append(field);
   }
-  if (opts.extra) content.append(opts.extra);
+
+  const extra = typeof opts.extra === 'function' ? opts.extra() : opts.extra;
+  if (extra) content.append(extra);
+
+  let handle: DialogHandle | null = null;
+  if (opts.more && (opts.more.href || opts.more.onClick)) {
+    const more = opts.more;
+    const label = more.label ?? LABELS.moreSettings;
+    const row = more.href
+      ? h('a', { class: 'g92-btn g92-btn--secondary g92-btn--block g92-settings__more', href: more.href })
+      : h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--block g92-settings__more' });
+    row.append(h('span', null, label), h('span', { html: UI_ICONS.arrowRight, 'aria-hidden': 'true' }));
+    row.addEventListener('click', () => {
+      handle?.close('more');
+      more.onClick?.();
+    });
+    content.append(row);
+  }
   content.append(h('p', { class: 'g92-hint' }, 'Nastavení platí pro všechny hry a cvičení.'));
 
   // keep controls in sync if settings change elsewhere (other tab, appbar sound button)
   const off = subscribeSettings((n) => {
     soundToggle.checked = n.sound;
     volume.disabled = !n.sound;
+    if (voiceToggle) voiceToggle.checked = n.voice;
   });
 
-  settingsOpen = openDialog({
-    title: opts.title ?? 'Nastavení',
+  handle = openDialog({
+    title: opts.title ?? LABELS.settings,
     icon: UI_ICONS.settings,
+    kind: 'settings',
     content,
-    actions: [{ label: 'Hotovo', autofocus: false }],
+    actions: [{ label: LABELS.done, autofocus: false }],
     onClose: () => {
       off();
       settingsOpen = null;
     },
   });
-  return settingsOpen;
+  settingsOpen = handle;
+  return handle;
 }

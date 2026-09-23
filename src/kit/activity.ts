@@ -11,10 +11,17 @@ import { readJSON, writeJSON } from './storage';
 export const ACTIVITY_KEY = 'g92:activity';
 
 export interface ActivityMetric {
-  /** Short Czech label, e.g. "Rekord", "Hotovo", "Slovíček". */
-  label: string;
-  /** Displayed as-is (numbers are formatted with cs-CZ separators by the menu). */
+  /**
+   * Nominative label shown as "Label: value" when there is no unit, e.g. "Rekord" → "Rekord: 12 840".
+   * With a unit the label is an optional prefix: "Rekord: 1 200 bodů".
+   */
+  label?: string;
+  /** Displayed with cs-CZ separators; strings as-is ("12/59"). */
   value: number | string;
+  /** Czech plural forms [one, few, many] → "58 hvězd", "342 slovíček", "1 ryba" */
+  unit?: readonly [string, string, string];
+  /** for "12 z 59 ryb": the total */
+  of?: number;
 }
 
 export interface ActivityEntry {
@@ -25,8 +32,10 @@ export interface ActivityEntry {
   metric?: ActivityMetric;
   /** 0..1 overall progress */
   progress?: number;
-  /** free text like "Úroveň 3" or "Násobilka 7" */
+  /** free text like "Úroveň 3" or "Násobilka 7" — shown first on the menu's "Pokračovat" card */
   note?: string;
+  /** deep link for "Pokračovat" (same app, e.g. "/matematika/#/uroven/7") */
+  href?: string;
 }
 
 export type ActivityMap = Record<string, ActivityEntry>;
@@ -35,6 +44,8 @@ export interface ActivityUpdate {
   metric?: ActivityMetric | null;
   progress?: number | null;
   note?: string | null;
+  /** deep link to continue exactly here (must start with the app path) */
+  href?: string | null;
 }
 
 const SESSION_GAP = 30 * 60 * 1000;
@@ -59,7 +70,15 @@ export function recordActivity(appId: string, update: ActivityUpdate = {}, now: 
   const metric = update.metric === undefined ? prev?.metric : update.metric ?? undefined;
   const progress = update.progress === undefined ? prev?.progress : update.progress ?? undefined;
   const note = update.note === undefined ? prev?.note : update.note ?? undefined;
-  if (metric) entry.metric = { label: String(metric.label), value: metric.value };
+  const href = update.href === undefined ? prev?.href : update.href ?? undefined;
+  if (metric) {
+    const m: ActivityMetric = { value: metric.value };
+    if (metric.label) m.label = String(metric.label);
+    if (Array.isArray(metric.unit) && metric.unit.length === 3) m.unit = [String(metric.unit[0]), String(metric.unit[1]), String(metric.unit[2])];
+    if (typeof metric.of === 'number' && Number.isFinite(metric.of)) m.of = metric.of;
+    entry.metric = m;
+  }
+  if (typeof href === 'string' && href.startsWith(`/${appId}/`)) entry.href = href;
   if (typeof progress === 'number' && Number.isFinite(progress)) entry.progress = Math.min(1, Math.max(0, progress));
   if (note) entry.note = String(note).slice(0, 80);
   all[appId] = entry;
@@ -128,7 +147,7 @@ export function timeAgo(ts: number, now: number = Date.now()): string {
 export function timeAgoShort(ts: number, now: number = Date.now()): string {
   const diff = Math.max(0, now - ts);
   const min = Math.floor(diff / 60000);
-  if (min < 1) return 'teď';
+  if (min < 1) return 'právě teď';
   if (min < 60) return `před ${min} min`;
   const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((dayStart(new Date(now)) - dayStart(new Date(ts))) / 86400000);
@@ -142,4 +161,29 @@ export function timeAgoShort(ts: number, now: number = Date.now()): string {
 /** Format a metric value for display (cs-CZ thousands separators). */
 export function formatMetric(value: number | string): string {
   return typeof value === 'number' ? value.toLocaleString('cs-CZ') : value;
+}
+
+function pluralForm(n: number, forms: readonly [string, string, string]): string {
+  const a = Math.abs(n);
+  if (a === 1) return forms[0];
+  if (a >= 2 && a <= 4 && Number.isInteger(a)) return forms[1];
+  return forms[2];
+}
+
+/**
+ * One grammatical form for every metric in the family:
+ *   { value: 58, unit: ['hvězda','hvězdy','hvězd'] }            → "58 hvězd"
+ *   { value: 12, of: 59, unit: ['ryba','ryby','ryb'] }           → "12 z 59 ryb"
+ *   { label: 'Rekord', value: 12840 }                           → "Rekord: 12 840"
+ *   { label: 'Rekord', value: 1200, unit: ['bod','body','bodů'] } → "Rekord: 1 200 bodů"
+ */
+export function metricText(m: ActivityMetric): string {
+  const v = formatMetric(m.value);
+  const n = typeof m.value === 'number' ? m.value : Number.NaN;
+  let core = v;
+  if (m.unit) {
+    const count = typeof m.of === 'number' ? m.of : n;
+    core = typeof m.of === 'number' ? `${v} z ${formatMetric(m.of)} ${pluralForm(count, m.unit)}` : Number.isFinite(n) ? `${v} ${pluralForm(n, m.unit)}` : `${v} ${m.unit[2]}`;
+  } else if (typeof m.of === 'number') core = `${v} z ${formatMetric(m.of)}`;
+  return m.label ? `${m.label}: ${core}` : core;
 }
