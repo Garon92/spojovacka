@@ -702,7 +702,11 @@ export class GameScreen {
   }
 
   showHint(manual: boolean) {
-    if (!this.canAct()) return;
+    if (!this.canAct()) {
+      // board still settling – try again a bit later
+      if (!manual && this.active && !this.ended && !this.paused) this.scheduleIdle(1200);
+      return;
+    }
     const hnt = bestHint(this.state.board);
     if (hnt) this.view.showHint({ a: hnt.a, b: hnt.b });
     else {

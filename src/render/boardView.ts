@@ -1067,8 +1067,9 @@ export class BoardView {
         ctx.globalCompositeOperation = 'lighter';
         for (const sgn of [-1, 1]) {
           const d = Math.min(dist, len + 1);
-          const hx = (x + 0.5 + (dir === 'h' ? sgn * d : 0)) * s;
-          const hy = (y + 0.5 + (dir === 'v' ? sgn * d : 0)) * s;
+          // keep the beam on the board
+          const hx = clamp(x + 0.5 + (dir === 'h' ? sgn * d : 0), 0.15, this.w - 0.15) * s;
+          const hy = clamp(y + 0.5 + (dir === 'v' ? sgn * d : 0), 0.15, this.h - 0.15) * s;
           const g = ctx.createLinearGradient((x + 0.5) * s, (y + 0.5) * s, hx, hy);
           g.addColorStop(0, 'rgba(255,255,255,0)');
           g.addColorStop(1, color);
