@@ -1,0 +1,7 @@
+/* g92 kit — single CSS entry. Import once, before your app CSS:
+     import './kit/kit.css'            (JS/TS, recommended — Vite resolves the font URLs)
+   Tokens are unlayered; reset/components sit in cascade layers `base` and `components`
+   so any unlayered app CSS (and Tailwind utilities) override them. */
+@import './fonts.css';
+@import './tokens.css';
+@import './base.css';

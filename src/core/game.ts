@@ -116,7 +116,7 @@ export function playBonus(s: GameState): MoveResult {
     }
     s.score += left * BONUS_PER_MOVE;
     s.movesLeft = 0;
-    steps.push({ type: 'bonus', converted, movesUsed: left });
+    steps.push({ type: 'bonus', converted, movesUsed: left, score: left * BONUS_PER_MOVE });
     cascades = resolveAll(s, steps, [], actions);
   }
   // detonate remaining specials

@@ -1,0 +1,68 @@
+/* g92 kit → Tailwind v4 theme bridge.
+   Usage (src/index.css of a React app):
+     @import "tailwindcss";
+     @import "./kit/tailwind-theme.css";
+   and in main.tsx:  import './kit/kit.css'  (before './index.css').
+
+   `@theme inline` makes utilities reference the kit variables directly, so light/dark
+   and per-app --accent switch at runtime with no rebuild:
+     bg-surface text-fg text-muted border-border bg-accent text-accent-contrast
+     bg-accent-soft text-accent-text rounded-lg shadow-2 font-sans …
+   `dark:` follows the kit theme (system or the user's choice in g92 settings). */
+
+@custom-variant dark (&:where([data-scheme='dark'], [data-scheme='dark'] *));
+
+@theme inline {
+  --font-sans: var(--g92-font);
+  --font-mono: var(--g92-font-mono);
+
+  --color-bg: var(--g92-bg);
+  --color-bg-elevated: var(--g92-bg-elevated);
+  --color-surface: var(--g92-surface);
+  --color-surface-2: var(--g92-surface-2);
+  --color-surface-3: var(--g92-surface-3);
+  --color-border: var(--g92-border);
+  --color-border-strong: var(--g92-border-strong);
+  --color-fg: var(--g92-text);
+  --color-muted: var(--g92-text-muted);
+  --color-subtle: var(--g92-text-subtle);
+  --color-inverse: var(--g92-text-inverse);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-softer: var(--accent-softer);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+  --color-accent-contrast: var(--accent-contrast);
+
+  --color-success: var(--g92-success);
+  --color-success-soft: var(--g92-success-soft);
+  --color-warning: var(--g92-warning);
+  --color-warning-soft: var(--g92-warning-soft);
+  --color-danger: var(--g92-danger);
+  --color-danger-soft: var(--g92-danger-soft);
+  --color-info: var(--g92-info);
+  --color-info-soft: var(--g92-info-soft);
+  --color-gold: var(--g92-gold);
+
+  --radius-xs: var(--g92-radius-xs);
+  --radius-sm: var(--g92-radius-sm);
+  --radius-md: var(--g92-radius-md);
+  --radius-lg: var(--g92-radius-lg);
+  --radius-xl: var(--g92-radius-xl);
+  --radius-2xl: var(--g92-radius-2xl);
+
+  --shadow-1: var(--g92-shadow-1);
+  --shadow-2: var(--g92-shadow-2);
+  --shadow-3: var(--g92-shadow-3);
+  --shadow-4: var(--g92-shadow-4);
+
+  --ease-out: var(--g92-ease-out);
+  --ease-in: var(--g92-ease-in);
+  --ease-in-out: var(--g92-ease-in-out);
+  --ease-spring: var(--g92-ease-spring);
+
+  --text-display: var(--g92-fs-display);
+  --text-display--line-height: 1.05;
+}

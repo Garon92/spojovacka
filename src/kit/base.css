@@ -1,0 +1,1781 @@
+/* ==========================================================================
+   g92 kit — base: reset, elements, components, utilities
+   --------------------------------------------------------------------------
+   Everything lives in cascade layers `base` and `components`, so:
+   - your own (unlayered) app CSS always wins without !important,
+   - in Tailwind v4 apps the layers merge with Tailwind's: utilities beat kit
+     components, kit components beat preflight.
+   ========================================================================== */
+
+@layer base, components;
+
+/* ==========================================================================
+   Reset + element defaults
+   ========================================================================== */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    hanging-punctuation: first last;
+    scroll-padding-top: calc(var(--g92-appbar-h) + env(safe-area-inset-top, 0px) + 12px);
+  }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: var(--g92-font);
+    font-size: var(--g92-fs-md);
+    font-weight: var(--g92-fw-regular);
+    line-height: var(--g92-lh-body);
+    color: var(--g92-text);
+    background-color: var(--g92-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-optical-sizing: auto;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  img,
+  video {
+    height: auto;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  p,
+  li,
+  figcaption {
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: var(--g92-fw-black);
+    line-height: var(--g92-lh-tight);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    overflow-wrap: break-word;
+  }
+
+  h1 {
+    font-size: var(--g92-fs-3xl);
+  }
+  h2 {
+    font-size: var(--g92-fs-2xl);
+  }
+  h3 {
+    font-size: var(--g92-fs-xl);
+    font-weight: var(--g92-fw-bold);
+  }
+  h4 {
+    font-size: var(--g92-fs-lg);
+    font-weight: var(--g92-fw-bold);
+  }
+
+  a {
+    color: var(--accent-text);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+  }
+
+  a:hover {
+    text-decoration-thickness: 0.14em;
+  }
+
+  strong,
+  b {
+    font-weight: var(--g92-fw-bold);
+  }
+
+  small {
+    font-size: var(--g92-fs-sm);
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--g92-font-mono);
+    font-size: 0.92em;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--g92-border);
+  }
+
+  ::selection {
+    background: var(--accent-glow);
+  }
+
+  :focus {
+    outline: none;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--g92-focus);
+    outline-offset: 2px;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Honour reduced motion for CSS animations everywhere. */
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion='full']) *,
+    :root:not([data-motion='full']) *::before,
+    :root:not([data-motion='full']) *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  :root[data-motion='reduce'] *,
+  :root[data-motion='reduce'] *::before,
+  :root[data-motion='reduce'] *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+@layer components {
+  /* ---- Page shell --------------------------------------------------------
+     <body class="g92-app"> <g92-appbar app="x"></g92-appbar> <main class="g92-main">…
+  */
+  .g92-app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background:
+      radial-gradient(90rem 40rem at 50% -18rem, var(--accent-soft), transparent 70%),
+      var(--g92-bg);
+    background-attachment: fixed;
+  }
+
+  .g92-main {
+    flex: 1;
+    width: 100%;
+    max-width: var(--g92-container);
+    margin-inline: auto;
+    padding: var(--g92-space-6) max(var(--g92-gutter), env(safe-area-inset-right, 0px))
+      calc(var(--g92-space-12) + env(safe-area-inset-bottom, 0px)) max(var(--g92-gutter), env(safe-area-inset-left, 0px));
+  }
+
+  .g92-main--narrow {
+    max-width: var(--g92-container-narrow);
+  }
+
+  .g92-main--full {
+    max-width: none;
+    padding: 0;
+  }
+
+  .g92-container {
+    width: 100%;
+    max-width: var(--g92-container);
+    margin-inline: auto;
+    padding-inline: var(--g92-gutter);
+  }
+
+  /* ---- Buttons -----------------------------------------------------------
+     .g92-btn (= primary) | --secondary | --ghost | --danger | --success | --soft
+     sizes: --sm | (md) | --lg | --xl (huge, kid-friendly)   shape: --icon, --block, --pill
+  */
+  .g92-btn {
+    --_bg: var(--accent);
+    --_fg: var(--accent-contrast);
+    --_bd: transparent;
+    --_sh: var(--g92-shadow-2), inset 0 -3px 0 rgb(0 0 0 / 0.14);
+    --_h: 48px;
+    --_px: 1.25rem;
+    --_fs: var(--g92-fs-md);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55em;
+    min-height: var(--_h);
+    min-width: var(--g92-touch);
+    padding: 0 var(--_px);
+    border: 2px solid var(--_bd);
+    border-radius: var(--g92-radius-md);
+    background: var(--_bg);
+    color: var(--_fg);
+    box-shadow: var(--_sh);
+    font-size: var(--_fs);
+    font-weight: var(--g92-fw-bold);
+    line-height: 1.1;
+    letter-spacing: 0.005em;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    transition:
+      transform var(--g92-dur-2) var(--g92-ease-spring),
+      box-shadow var(--g92-dur-2) var(--g92-ease-out),
+      background-color var(--g92-dur-2) var(--g92-ease-out),
+      border-color var(--g92-dur-2) var(--g92-ease-out),
+      color var(--g92-dur-2) var(--g92-ease-out),
+      filter var(--g92-dur-2) var(--g92-ease-out);
+  }
+
+  .g92-btn svg {
+    width: 1.25em;
+    height: 1.25em;
+    flex: none;
+  }
+
+  @media (hover: hover) {
+    .g92-btn:hover:not(:disabled, [aria-disabled='true']) {
+      transform: translateY(calc(-1px * var(--g92-motion)));
+      filter: brightness(1.06) saturate(1.05);
+    }
+  }
+
+  .g92-btn:active:not(:disabled, [aria-disabled='true']) {
+    transform: translateY(calc(1px * var(--g92-motion))) scale(calc(1 - 0.03 * var(--g92-motion)));
+    box-shadow: var(--g92-shadow-1);
+    transition-duration: var(--g92-dur-1);
+  }
+
+  .g92-btn:disabled,
+  .g92-btn[aria-disabled='true'] {
+    opacity: 0.45;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .g92-btn--secondary {
+    --_bg: var(--g92-surface);
+    --_fg: var(--g92-text);
+    --_bd: var(--g92-border-strong);
+    --_sh: var(--g92-shadow-1);
+  }
+
+  .g92-btn--soft {
+    --_bg: var(--accent-soft);
+    --_fg: var(--accent-text);
+    --_bd: transparent;
+    --_sh: none;
+  }
+
+  .g92-btn--ghost {
+    --_bg: transparent;
+    --_fg: var(--g92-text);
+    --_bd: transparent;
+    --_sh: none;
+  }
+
+  @media (hover: hover) {
+    .g92-btn--ghost:hover:not(:disabled) {
+      --_bg: var(--g92-surface-2);
+      filter: none;
+    }
+    .g92-btn--secondary:hover:not(:disabled) {
+      --_bd: var(--accent-border);
+      filter: none;
+    }
+  }
+
+  .g92-btn--danger {
+    --_bg: var(--g92-danger);
+    --_fg: #fff;
+  }
+
+  :root[data-scheme='dark'] .g92-btn--danger,
+  :root[data-scheme='dark'] .g92-btn--success {
+    --_fg: #10121f;
+  }
+
+  .g92-btn--success {
+    --_bg: var(--g92-success);
+    --_fg: #fff;
+  }
+
+  .g92-btn--sm {
+    --_h: var(--g92-touch);
+    --_px: 0.9rem;
+    --_fs: var(--g92-fs-sm);
+    border-radius: var(--g92-radius-sm);
+  }
+
+  .g92-btn--lg {
+    --_h: var(--g92-touch-lg);
+    --_px: 1.6rem;
+    --_fs: var(--g92-fs-lg);
+    border-radius: var(--g92-radius-lg);
+  }
+
+  .g92-btn--xl {
+    --_h: var(--g92-touch-xl);
+    --_px: 2.25rem;
+    --_fs: var(--g92-fs-xl);
+    font-weight: var(--g92-fw-black);
+    border-radius: var(--g92-radius-xl);
+    --_sh: var(--g92-shadow-3), inset 0 -5px 0 rgb(0 0 0 / 0.16);
+  }
+
+  .g92-btn--icon {
+    --_px: 0;
+    width: var(--_h);
+    min-width: var(--_h);
+  }
+
+  .g92-btn--block {
+    display: flex;
+    width: 100%;
+  }
+
+  .g92-btn--pill {
+    border-radius: var(--g92-radius-pill);
+  }
+
+  .g92-btn.is-active,
+  .g92-btn[aria-pressed='true'] {
+    --_bd: var(--accent);
+  }
+
+  /* ---- Cards ------------------------------------------------------------ */
+  .g92-card {
+    position: relative;
+    display: block;
+    padding: var(--g92-space-5);
+    border-radius: var(--g92-radius-lg);
+    background: var(--g92-surface);
+    border: 1px solid var(--g92-border);
+    box-shadow: var(--g92-shadow-2);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .g92-card--flat {
+    box-shadow: none;
+    background: var(--g92-surface-2);
+    border-color: transparent;
+  }
+
+  .g92-card--accent {
+    background: linear-gradient(160deg, var(--accent-soft), var(--g92-surface) 70%);
+    border-color: var(--accent-border);
+  }
+
+  .g92-card--interactive {
+    cursor: pointer;
+    transition:
+      transform var(--g92-dur-3) var(--g92-ease-spring),
+      box-shadow var(--g92-dur-3) var(--g92-ease-out),
+      border-color var(--g92-dur-2) var(--g92-ease-out);
+  }
+
+  @media (hover: hover) {
+    .g92-card--interactive:hover {
+      transform: translateY(calc(-3px * var(--g92-motion)));
+      box-shadow: var(--g92-shadow-3);
+      border-color: var(--accent-border);
+    }
+  }
+
+  .g92-card--interactive:active {
+    transform: scale(calc(1 - 0.015 * var(--g92-motion)));
+    transition-duration: var(--g92-dur-1);
+  }
+
+  /* ---- Chips & badges ---------------------------------------------------- */
+  .g92-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    min-height: 32px;
+    padding: 0.2rem 0.8rem;
+    border-radius: var(--g92-radius-pill);
+    background: var(--g92-surface-2);
+    color: var(--g92-text);
+    border: 1px solid var(--g92-border);
+    font-size: var(--g92-fs-sm);
+    font-weight: var(--g92-fw-medium);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  button.g92-chip,
+  a.g92-chip,
+  label.g92-chip {
+    min-height: var(--g92-touch);
+    padding-inline: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color var(--g92-dur-2) var(--g92-ease-out), border-color var(--g92-dur-2) var(--g92-ease-out);
+  }
+
+  .g92-chip[aria-pressed='true'],
+  .g92-chip.is-active,
+  label.g92-chip:has(input:checked) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+
+  label.g92-chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .g92-chip svg {
+    width: 1.1em;
+    height: 1.1em;
+  }
+
+  .g92-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--g92-radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-size: var(--g92-fs-xs);
+    font-weight: var(--g92-fw-bold);
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .g92-badge--success {
+    background: var(--g92-success-soft);
+    color: var(--g92-success);
+  }
+  .g92-badge--warning {
+    background: var(--g92-warning-soft);
+    color: var(--g92-warning);
+  }
+  .g92-badge--danger {
+    background: var(--g92-danger-soft);
+    color: var(--g92-danger);
+  }
+  .g92-badge--neutral {
+    background: var(--g92-surface-2);
+    color: var(--g92-text-muted);
+  }
+  .g92-badge--solid {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  /* ---- Form fields ------------------------------------------------------- */
+  .g92-field {
+    display: grid;
+    gap: var(--g92-space-2);
+  }
+
+  .g92-label {
+    font-weight: var(--g92-fw-bold);
+    font-size: var(--g92-fs-sm);
+    color: var(--g92-text);
+  }
+
+  .g92-hint {
+    font-size: var(--g92-fs-sm);
+    color: var(--g92-text-muted);
+  }
+
+  .g92-input,
+  .g92-select,
+  .g92-textarea {
+    width: 100%;
+    min-height: 48px;
+    padding: 0.65rem 0.95rem;
+    border-radius: var(--g92-radius-md);
+    border: 2px solid var(--g92-border);
+    background: var(--g92-surface);
+    color: var(--g92-text);
+    font-size: max(16px, var(--g92-fs-md)); /* ≥16px: no iOS zoom */
+    line-height: 1.3;
+    transition: border-color var(--g92-dur-2) var(--g92-ease-out), box-shadow var(--g92-dur-2) var(--g92-ease-out);
+  }
+
+  .g92-textarea {
+    min-height: 6rem;
+    resize: vertical;
+  }
+
+  .g92-input::placeholder,
+  .g92-textarea::placeholder {
+    color: var(--g92-text-subtle);
+  }
+
+  .g92-input:hover,
+  .g92-select:hover,
+  .g92-textarea:hover {
+    border-color: var(--g92-border-strong);
+  }
+
+  .g92-input:focus-visible,
+  .g92-select:focus-visible,
+  .g92-textarea:focus-visible,
+  .g92-input:focus,
+  .g92-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+
+  .g92-input[aria-invalid='true'],
+  .g92-input.is-error {
+    border-color: var(--g92-danger);
+  }
+
+  .g92-input.is-success {
+    border-color: var(--g92-success);
+  }
+
+  .g92-input--xl {
+    min-height: var(--g92-touch-xl);
+    font-size: var(--g92-fs-2xl);
+    font-weight: var(--g92-fw-black);
+    text-align: center;
+    border-radius: var(--g92-radius-xl);
+  }
+
+  .g92-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.6rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    background-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  /* Toggle switch: <input type="checkbox" class="g92-toggle" role="switch"> */
+  .g92-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    flex: none;
+    width: 52px;
+    height: 32px;
+    margin: 6px 0;
+    border-radius: var(--g92-radius-pill);
+    background: var(--g92-surface-3);
+    border: 0;
+    cursor: pointer;
+    transition: background-color var(--g92-dur-2) var(--g92-ease-out);
+  }
+
+  .g92-toggle::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+    transition: transform var(--g92-dur-3) var(--g92-ease-spring);
+  }
+
+  .g92-toggle:checked {
+    background: var(--accent);
+  }
+
+  .g92-toggle:checked::before {
+    transform: translateX(20px);
+  }
+
+  .g92-toggle:disabled {
+    opacity: 0.5;
+  }
+
+  /* Row with label + control, e.g. in settings */
+  .g92-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--g92-space-4);
+    min-height: var(--g92-touch);
+    cursor: pointer;
+  }
+
+  /* Segmented control:
+     <div class="g92-segmented" role="radiogroup">
+       <label><input type="radio" name="d" value="easy" checked><span>Lehká</span></label> …
+  */
+  .g92-segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--g92-radius-lg);
+    background: var(--g92-surface-2);
+    border: 1px solid var(--g92-border);
+  }
+
+  .g92-segmented--block {
+    display: flex;
+  }
+
+  .g92-segmented--block > * {
+    flex: 1;
+  }
+
+  .g92-segmented label,
+  .g92-segmented button {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .g92-segmented input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+  }
+
+  .g92-segmented > label > span,
+  .g92-segmented > button {
+    display: inline-flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+    min-height: 40px;
+    min-width: 44px;
+    padding: 0.35rem 0.95rem;
+    border-radius: calc(var(--g92-radius-lg) - 4px);
+    border: 0;
+    background: transparent;
+    color: var(--g92-text-muted);
+    font-weight: var(--g92-fw-bold);
+    font-size: var(--g92-fs-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--g92-dur-2) var(--g92-ease-out), color var(--g92-dur-2) var(--g92-ease-out),
+      box-shadow var(--g92-dur-2) var(--g92-ease-out);
+  }
+
+  .g92-segmented > label:hover > span,
+  .g92-segmented > button:hover {
+    color: var(--g92-text);
+  }
+
+  .g92-segmented svg {
+    width: 1.2em;
+    height: 1.2em;
+    flex: none;
+  }
+
+  .g92-segmented input:checked + span,
+  .g92-segmented > button[aria-pressed='true'],
+  .g92-segmented > button[aria-checked='true'] {
+    background: var(--g92-surface);
+    color: var(--accent-text);
+    box-shadow: var(--g92-shadow-2);
+  }
+
+  .g92-segmented input:focus-visible + span {
+    outline: 3px solid var(--g92-focus);
+    outline-offset: 1px;
+  }
+
+  /* Range slider */
+  .g92-range {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: var(--g92-touch);
+    background: transparent;
+    cursor: pointer;
+    --_pct: 50%;
+  }
+
+  .g92-range::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: var(--g92-radius-pill);
+    background: linear-gradient(to right, var(--accent) var(--_pct), var(--g92-surface-3) var(--_pct));
+  }
+
+  .g92-range::-moz-range-track {
+    height: 8px;
+    border-radius: var(--g92-radius-pill);
+    background: var(--g92-surface-3);
+  }
+
+  .g92-range::-moz-range-progress {
+    height: 8px;
+    border-radius: var(--g92-radius-pill);
+    background: var(--accent);
+  }
+
+  .g92-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    margin-top: -9px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--accent);
+    box-shadow: var(--g92-shadow-2);
+  }
+
+  .g92-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--accent);
+    box-shadow: var(--g92-shadow-2);
+  }
+
+  .g92-range:focus-visible {
+    outline: none;
+  }
+
+  .g92-range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 5px var(--accent-glow);
+  }
+
+  /* ---- Progress ----------------------------------------------------------
+     <div class="g92-progress" style="--value: 0.4" role="progressbar" aria-valuenow="40"></div>
+  */
+  .g92-progress {
+    --value: 0;
+    position: relative;
+    height: 12px;
+    border-radius: var(--g92-radius-pill);
+    background: var(--g92-surface-3);
+    overflow: hidden;
+  }
+
+  .g92-progress::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: calc(clamp(0, var(--value), 1) * 100%);
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 70%, #fff));
+    transition: width var(--g92-dur-4) var(--g92-ease-out);
+  }
+
+  .g92-progress--sm {
+    height: 6px;
+  }
+
+  .g92-progress--lg {
+    height: 18px;
+  }
+
+  .g92-progress--success::after {
+    background: var(--g92-success);
+  }
+
+  /* ---- Stars -------------------------------------------------------------
+     <span class="g92-stars" role="img" aria-label="2 ze 3 hvězd">
+       <svg class="g92-star is-on">…</svg> …   (use starsHTML() from dom.ts)
+  */
+  .g92-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15em;
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .g92-star {
+    width: 1em;
+    height: 1em;
+    color: var(--g92-surface-3);
+    flex: none;
+  }
+
+  .g92-star.is-on {
+    color: var(--g92-gold);
+    filter: drop-shadow(0 2px 3px rgb(245 183 0 / 0.35));
+  }
+
+  .g92-stars--lg {
+    font-size: 3rem;
+    gap: 0.2em;
+  }
+
+  .g92-stars--lg .g92-star:nth-child(2) {
+    transform: translateY(-0.18em) scale(1.12);
+  }
+
+  .g92-stars--animate .g92-star.is-on {
+    animation: g92-star-pop var(--g92-dur-5) var(--g92-ease-spring) both;
+  }
+
+  .g92-stars--animate .g92-star.is-on:nth-child(2) {
+    animation-delay: 180ms;
+  }
+
+  .g92-stars--animate .g92-star.is-on:nth-child(3) {
+    animation-delay: 360ms;
+  }
+
+  @keyframes g92-star-pop {
+    0% {
+      transform: scale(0.2) rotate(-40deg);
+      opacity: 0;
+    }
+    60% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* ---- Dialog (native <dialog class="g92-dialog">) ----------------------- */
+  .g92-dialog {
+    width: min(100% - 2rem, 30rem);
+    max-height: min(100% - 2rem, 44rem);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--g92-border);
+    border-radius: var(--g92-radius-xl);
+    background: var(--g92-surface);
+    color: var(--g92-text);
+    box-shadow: var(--g92-shadow-4);
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .g92-dialog--wide {
+    width: min(100% - 2rem, 44rem);
+  }
+
+  .g92-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    animation: g92-dialog-in var(--g92-dur-3) var(--g92-ease-spring);
+  }
+
+  .g92-dialog::backdrop {
+    background: var(--g92-scrim);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: g92-fade-in var(--g92-dur-3) var(--g92-ease-out);
+  }
+
+  .g92-dialog.is-closing {
+    animation: g92-dialog-out var(--g92-dur-2) var(--g92-ease-in) forwards;
+  }
+
+  .g92-dialog.is-closing::backdrop {
+    animation: g92-fade-out var(--g92-dur-2) var(--g92-ease-in) forwards;
+  }
+
+  .g92-dialog__head {
+    display: flex;
+    align-items: center;
+    gap: var(--g92-space-3);
+    padding: var(--g92-space-5) var(--g92-space-5) var(--g92-space-2) var(--g92-space-6);
+  }
+
+  .g92-dialog__title {
+    flex: 1;
+    font-size: var(--g92-fs-xl);
+    font-weight: var(--g92-fw-black);
+  }
+
+  .g92-dialog__body {
+    padding: var(--g92-space-2) var(--g92-space-6) var(--g92-space-5);
+    overflow-y: auto;
+    display: grid;
+    gap: var(--g92-space-4);
+  }
+
+  .g92-dialog__foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--g92-space-3);
+    padding: var(--g92-space-4) var(--g92-space-6) var(--g92-space-6);
+  }
+
+  @media (max-width: 480px) {
+    .g92-dialog__foot > .g92-btn {
+      flex: 1;
+    }
+  }
+
+  @keyframes g92-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(calc(16px * var(--g92-motion))) scale(calc(1 - 0.04 * var(--g92-motion)));
+    }
+  }
+
+  @keyframes g92-dialog-out {
+    to {
+      opacity: 0;
+      transform: translateY(calc(8px * var(--g92-motion))) scale(calc(1 - 0.03 * var(--g92-motion)));
+    }
+  }
+
+  @keyframes g92-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes g92-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  /* ---- Toast ------------------------------------------------------------- */
+  .g92-toasts {
+    position: fixed;
+    z-index: var(--g92-z-toast);
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    transform: translateX(-50%);
+    display: grid;
+    justify-items: center;
+    gap: var(--g92-space-2);
+    width: min(100% - 2rem, 28rem);
+    pointer-events: none;
+  }
+
+  .g92-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--g92-space-3);
+    min-height: 48px;
+    padding: 0.7rem 1.1rem;
+    border-radius: var(--g92-radius-lg);
+    background: var(--g92-text);
+    color: var(--g92-bg);
+    box-shadow: var(--g92-shadow-3);
+    font-weight: var(--g92-fw-bold);
+    pointer-events: auto;
+    animation: g92-toast-in var(--g92-dur-3) var(--g92-ease-spring);
+  }
+
+  .g92-toast__msg {
+    flex: 1;
+  }
+
+  .g92-toast__action {
+    flex: none;
+    min-height: 36px;
+    margin: -4px -6px -4px 4px;
+    padding: 0 0.9rem;
+    border: 0;
+    border-radius: var(--g92-radius-sm);
+    background: color-mix(in oklab, currentColor 16%, transparent);
+    color: inherit;
+    font-weight: var(--g92-fw-black);
+    cursor: pointer;
+  }
+
+  .g92-toast__action:hover {
+    background: color-mix(in oklab, currentColor 26%, transparent);
+  }
+
+  .g92-toast.is-leaving {
+    animation: g92-fade-out var(--g92-dur-2) var(--g92-ease-in) forwards;
+  }
+
+  .g92-toast--success {
+    background: var(--g92-success);
+    color: #fff;
+  }
+
+  .g92-toast--danger {
+    background: var(--g92-danger);
+    color: #fff;
+  }
+
+  .g92-toast--accent {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  :root[data-scheme='dark'] .g92-toast--success,
+  :root[data-scheme='dark'] .g92-toast--danger {
+    color: #10121f;
+  }
+
+  @keyframes g92-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(calc(20px * var(--g92-motion))) scale(calc(1 - 0.06 * var(--g92-motion)));
+    }
+  }
+
+  /* ---- Misc -------------------------------------------------------------- */
+  .g92-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.8em;
+    height: 1.8em;
+    padding: 0 0.45em;
+    border-radius: 6px;
+    border: 1px solid var(--g92-border-strong);
+    border-bottom-width: 3px;
+    background: var(--g92-surface);
+    font-family: var(--g92-font);
+    font-size: 0.8em;
+    font-weight: var(--g92-fw-bold);
+    line-height: 1;
+  }
+
+  .g92-icon-tile {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--g92-radius-md);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+
+  .g92-icon-tile svg {
+    width: 60%;
+    height: 60%;
+  }
+
+  .g92-icon-tile--solid svg,
+  .g92-overlay__icon svg {
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.18));
+  }
+
+  .g92-icon-tile--solid {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--accent) 80%, #fff), var(--accent));
+    color: #fff;
+    box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.12), var(--g92-shadow-1);
+  }
+
+  .g92-empty {
+    display: grid;
+    justify-items: center;
+    gap: var(--g92-space-3);
+    padding: var(--g92-space-10) var(--g92-space-6);
+    text-align: center;
+    color: var(--g92-text-muted);
+  }
+
+  .g92-empty svg {
+    width: 56px;
+    height: 56px;
+    color: var(--accent);
+    opacity: 0.8;
+  }
+
+  .g92-divider {
+    height: 1px;
+    background: var(--g92-border);
+    border: 0;
+  }
+
+  .g92-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid var(--accent-soft);
+    border-top-color: var(--accent);
+    animation: g92-spin 0.8s linear infinite;
+  }
+
+  @keyframes g92-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Feedback animations for answers: add class, remove on animationend */
+  .g92-anim-shake {
+    animation: g92-shake 420ms var(--g92-ease-out);
+  }
+
+  .g92-anim-pop {
+    animation: g92-pop 380ms var(--g92-ease-spring);
+  }
+
+  .g92-anim-float-in {
+    animation: g92-float-in var(--g92-dur-4) var(--g92-ease-out) both;
+  }
+
+  @keyframes g92-shake {
+    0%,
+    100% {
+      transform: none;
+    }
+    20% {
+      transform: translateX(calc(-8px * var(--g92-motion)));
+    }
+    40% {
+      transform: translateX(calc(7px * var(--g92-motion)));
+    }
+    60% {
+      transform: translateX(calc(-5px * var(--g92-motion)));
+    }
+    80% {
+      transform: translateX(calc(3px * var(--g92-motion)));
+    }
+  }
+
+  @keyframes g92-pop {
+    0% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(calc(1 + 0.12 * var(--g92-motion)));
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes g92-float-in {
+    from {
+      opacity: 0;
+      transform: translateY(calc(14px * var(--g92-motion)));
+    }
+  }
+
+  /* ---- Layout utilities --------------------------------------------------- */
+  .g92-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--g92-gap, var(--g92-space-4));
+  }
+
+  .g92-row {
+    display: flex;
+    align-items: center;
+    gap: var(--g92-gap, var(--g92-space-3));
+  }
+
+  .g92-cluster {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--g92-gap, var(--g92-space-3));
+  }
+
+  .g92-grid {
+    display: grid;
+    gap: var(--g92-gap, var(--g92-space-4));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--g92-min, 16rem)), 1fr));
+  }
+
+  .g92-center {
+    display: grid;
+    place-items: center;
+  }
+
+  .g92-spacer {
+    flex: 1;
+  }
+
+  .g92-muted {
+    color: var(--g92-text-muted);
+  }
+
+  .g92-accent-text {
+    color: var(--accent-text);
+  }
+
+  .g92-text-center {
+    text-align: center;
+  }
+
+  .g92-nowrap {
+    white-space: nowrap;
+  }
+
+  .g92-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .g92-eyebrow {
+    font-size: var(--g92-fs-xs);
+    font-weight: var(--g92-fw-black);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g92-text-muted);
+  }
+
+  .g92-sr-only,
+  .g92-visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  /* Games: stop page scrolling/zooming on the play area */
+  .g92-no-touch-scroll {
+    touch-action: none;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* ==========================================================================
+   Game overlays (overlay.ts) — v1
+   ========================================================================== */
+@layer components {
+  .g92-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--g92-z-overlay);
+    display: grid;
+    place-items: center;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: max(var(--g92-space-4), env(safe-area-inset-top, 0px)) max(var(--g92-space-4), env(safe-area-inset-right, 0px))
+      max(var(--g92-space-4), env(safe-area-inset-bottom, 0px)) max(var(--g92-space-4), env(safe-area-inset-left, 0px));
+    animation: g92-fade-in var(--g92-dur-3) var(--g92-ease-out);
+  }
+
+  .g92-overlay--contained {
+    position: absolute;
+  }
+
+  .g92-overlay--blur {
+    background: color-mix(in oklab, var(--g92-bg) 45%, transparent);
+    -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    backdrop-filter: blur(10px) saturate(1.2);
+  }
+
+  .g92-overlay--solid {
+    background:
+      radial-gradient(60rem 30rem at 50% -10rem, var(--accent-soft), transparent 70%),
+      radial-gradient(40rem 30rem at 100% 100%, var(--accent-softer), transparent 70%),
+      var(--g92-bg);
+  }
+
+  .g92-overlay--clear {
+    background: transparent;
+  }
+
+  .g92-overlay.is-leaving {
+    animation: g92-fade-out var(--g92-dur-2) var(--g92-ease-in) forwards;
+    pointer-events: none;
+  }
+
+  .g92-overlay__panel {
+    width: min(100%, 32rem);
+    margin: auto;
+    padding: clamp(1.5rem, 1rem + 3vw, 2.5rem);
+    border-radius: var(--g92-radius-2xl);
+    background: var(--g92-surface);
+    border: 1px solid var(--g92-border);
+    box-shadow: var(--g92-shadow-4);
+    text-align: center;
+    animation: g92-dialog-in var(--g92-dur-4) var(--g92-ease-spring);
+  }
+
+  .g92-overlay--start .g92-overlay__panel {
+    background: color-mix(in oklab, var(--g92-surface) 88%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .g92-overlay__panel,
+  .g92-overlay__view {
+    display: grid;
+    justify-items: center;
+    gap: var(--g92-space-4);
+  }
+
+  .g92-overlay__view {
+    width: 100%;
+  }
+
+  .g92-overlay__view[hidden] {
+    display: none;
+  }
+
+  .g92-overlay__icon {
+    display: grid;
+    place-items: center;
+    width: 96px;
+    height: 96px;
+    border-radius: 30px;
+    color: #fff;
+    background: linear-gradient(145deg, color-mix(in oklab, var(--accent) 72%, #fff), var(--accent) 60%, var(--accent-strong));
+    box-shadow: inset 0 -5px 0 rgb(0 0 0 / 0.14), 0 14px 30px -10px var(--accent-glow);
+    animation: g92-bob 3.2s var(--g92-ease-in-out) infinite;
+  }
+
+  .g92-overlay__icon svg {
+    width: 58%;
+    height: 58%;
+  }
+
+  .g92-overlay__icon--sm {
+    width: 72px;
+    height: 72px;
+    border-radius: 24px;
+    animation: none;
+  }
+
+  .g92-emoji {
+    font-size: 2.6em;
+    line-height: 1;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', var(--g92-font);
+  }
+
+  .g92-overlay__icon .g92-emoji {
+    font-size: 3rem;
+  }
+
+  .g92-overlay__title {
+    font-size: var(--g92-fs-4xl);
+    font-weight: var(--g92-fw-black);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .g92-overlay__title--sm {
+    font-size: var(--g92-fs-3xl);
+  }
+
+  .g92-overlay__subtitle {
+    margin-top: calc(-1 * var(--g92-space-2));
+    color: var(--g92-text-muted);
+    font-size: var(--g92-fs-lg);
+    font-weight: var(--g92-fw-medium);
+  }
+
+  .g92-overlay__best {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    padding: 0.4rem 0.95rem;
+    border-radius: var(--g92-radius-pill);
+    background: color-mix(in oklab, var(--g92-gold) 16%, var(--g92-surface));
+    color: var(--g92-text);
+    font-weight: var(--g92-fw-medium);
+  }
+
+  .g92-overlay__best svg {
+    width: 1.3em;
+    height: 1.3em;
+    color: var(--g92-gold);
+  }
+
+  .g92-overlay__best b {
+    font-weight: var(--g92-fw-black);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .g92-overlay__section {
+    display: grid;
+    gap: var(--g92-space-2);
+    width: 100%;
+    justify-items: center;
+  }
+
+  .g92-overlay__actions {
+    display: grid;
+    gap: var(--g92-space-3);
+    width: 100%;
+    margin-top: var(--g92-space-2);
+  }
+
+  .g92-overlay__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--g92-space-2);
+  }
+
+  .g92-overlay__row > * {
+    flex: 1 1 8rem;
+  }
+
+  .g92-overlay__stars {
+    padding-top: var(--g92-space-3);
+  }
+
+  .g92-overlay__scorebox {
+    display: grid;
+    justify-items: center;
+    line-height: 1;
+  }
+
+  .g92-overlay__score {
+    font-size: var(--g92-fs-display);
+    font-weight: var(--g92-fw-black);
+    color: var(--accent-text);
+    letter-spacing: -0.03em;
+  }
+
+  .g92-overlay__score-label {
+    margin-top: var(--g92-space-1);
+    color: var(--g92-text-muted);
+    font-weight: var(--g92-fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: var(--g92-fs-xs);
+  }
+
+  .g92-overlay__newbest {
+    font-size: var(--g92-fs-sm);
+    padding: 0.35rem 0.9rem;
+    animation: g92-pop 600ms var(--g92-ease-spring) 300ms both;
+  }
+
+  .g92-overlay__newbest svg {
+    width: 1.2em;
+    height: 1.2em;
+  }
+
+  .g92-overlay__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: var(--g92-space-2);
+    width: 100%;
+  }
+
+  .g92-overlay__stat {
+    display: grid;
+    gap: 2px;
+    padding: var(--g92-space-3);
+    border-radius: var(--g92-radius-lg);
+    background: var(--g92-surface-2);
+  }
+
+  .g92-overlay__stat dt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35em;
+    color: var(--g92-text-muted);
+    font-size: var(--g92-fs-xs);
+    font-weight: var(--g92-fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .g92-overlay__stat dt svg {
+    width: 1.2em;
+    height: 1.2em;
+  }
+
+  .g92-overlay__stat dd {
+    margin: 0;
+    font-size: var(--g92-fs-xl);
+    font-weight: var(--g92-fw-black);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* difficulty picker */
+  .g92-difficulty {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+    gap: var(--g92-space-2);
+    width: 100%;
+  }
+
+  .g92-difficulty__option {
+    position: relative;
+    display: flex;
+  }
+
+  .g92-difficulty__option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .g92-difficulty__card {
+    flex: 1;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 2px;
+    min-height: 76px;
+    padding: var(--g92-space-3) var(--g92-space-2);
+    border-radius: var(--g92-radius-lg);
+    border: 2px solid var(--g92-border);
+    background: var(--g92-surface);
+    cursor: pointer;
+    transition: border-color var(--g92-dur-2) var(--g92-ease-out), background-color var(--g92-dur-2) var(--g92-ease-out),
+      transform var(--g92-dur-2) var(--g92-ease-spring);
+  }
+
+  .g92-difficulty__option:hover .g92-difficulty__card {
+    border-color: var(--accent-border);
+  }
+
+  .g92-difficulty__option:active .g92-difficulty__card {
+    transform: scale(calc(1 - 0.04 * var(--g92-motion)));
+  }
+
+  .g92-difficulty__option input:checked + .g92-difficulty__card {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .g92-difficulty__option input:focus-visible + .g92-difficulty__card {
+    outline: 3px solid var(--g92-focus);
+    outline-offset: 2px;
+  }
+
+  .g92-difficulty__icon {
+    display: grid;
+    place-items: center;
+    height: 36px;
+    color: var(--accent-text);
+  }
+
+  .g92-difficulty__icon svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .g92-difficulty__icon .g92-emoji {
+    font-size: 1.9rem;
+  }
+
+  .g92-difficulty__label {
+    font-weight: var(--g92-fw-black);
+  }
+
+  .g92-difficulty__hint {
+    color: var(--g92-text-muted);
+    font-size: var(--g92-fs-xs);
+    font-weight: var(--g92-fw-medium);
+  }
+
+  /* how to play — pictograms */
+  .g92-howto {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: var(--g92-space-3);
+    width: 100%;
+    counter-reset: g92-step;
+  }
+
+  .g92-howto__step {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: var(--g92-space-2);
+    padding: var(--g92-space-4) var(--g92-space-3);
+    border-radius: var(--g92-radius-lg);
+    background: var(--g92-surface-2);
+    counter-increment: g92-step;
+    animation: g92-float-in var(--g92-dur-4) var(--g92-ease-out) both;
+    animation-delay: calc(var(--i, 0) * 90ms);
+  }
+
+  .g92-howto__step::before {
+    content: counter(g92-step);
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    font-size: var(--g92-fs-xs);
+    font-weight: var(--g92-fw-black);
+  }
+
+  .g92-howto__icon {
+    display: grid;
+    place-items: center;
+    height: 60px;
+    color: var(--accent-text);
+  }
+
+  .g92-howto__icon svg {
+    width: 52px;
+    height: 52px;
+  }
+
+  .g92-howto__icon .g92-emoji {
+    font-size: 3rem;
+  }
+
+  .g92-howto__text {
+    font-weight: var(--g92-fw-bold);
+    font-size: var(--g92-fs-sm);
+    line-height: 1.3;
+  }
+
+  .g92-keys {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--g92-space-2);
+    width: 100%;
+  }
+
+  .g92-keys li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--g92-space-3);
+    padding: var(--g92-space-2) var(--g92-space-3);
+    border-radius: var(--g92-radius-md);
+    background: var(--g92-surface-2);
+    font-weight: var(--g92-fw-medium);
+    text-align: left;
+  }
+
+  .g92-keys__keys {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* countdown */
+  .g92-countdown {
+    position: fixed;
+    inset: 0;
+    z-index: var(--g92-z-overlay);
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+
+  .g92-countdown__num {
+    font-size: clamp(6rem, 4rem + 18vw, 14rem);
+    font-weight: var(--g92-fw-black);
+    line-height: 1;
+    color: var(--accent);
+    -webkit-text-stroke: 4px var(--g92-surface);
+    paint-order: stroke fill;
+    text-shadow: 0 10px 40px var(--accent-glow);
+    animation: g92-count 800ms var(--g92-ease-out) both;
+  }
+
+  .g92-countdown__num.is-go {
+    font-size: clamp(4rem, 2.5rem + 12vw, 9rem);
+    color: var(--g92-success);
+  }
+
+  @keyframes g92-count {
+    0% {
+      opacity: 0;
+      transform: scale(calc(1 + 1.2 * var(--g92-motion)));
+    }
+    25% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(calc(1 - 0.2 * var(--g92-motion)));
+    }
+  }
+
+  @keyframes g92-bob {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(calc(-6px * var(--g92-motion))) rotate(calc(-2deg * var(--g92-motion)));
+    }
+  }
+
+  @media (max-height: 640px) {
+    .g92-overlay__icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 22px;
+    }
+    .g92-overlay__panel,
+    .g92-overlay__view {
+      gap: var(--g92-space-3);
+    }
+  }
+}
+
+/* ==========================================================================
+   Cross-app page transitions (same origin → every app gets a soft cross-fade
+   when navigating menu ↔ app). Ignored by browsers without support.
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+/* NB: no view-transition-name on <g92-appbar> — it would make the bar a backdrop root
+   and kill its frosted-glass backdrop-filter. */

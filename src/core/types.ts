@@ -213,6 +213,8 @@ export interface BonusStep {
   /** tiles converted into specials by leftover moves */
   converted: { id: number; x: number; y: number; special: Special; order: number }[];
   movesUsed: number;
+  /** flat bonus points for the leftover moves */
+  score: number;
 }
 
 export type Step = SwapStep | ClearStep | FallStep | CollectStep | ShuffleStep | BonusStep;
