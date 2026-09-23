@@ -13,6 +13,7 @@ import {
   countdown,
   getSettings,
   h,
+  haptic,
   openDialog,
   prefersReducedMotion,
   recordActivity,
@@ -566,12 +567,18 @@ export class GameScreen {
     const specialsBefore = this.state.stats.specialsUsed;
     const res = playMove(this.state, m);
     if (!res.valid) {
-      if (res.steps.length) await this.view.play(res.steps);
+      if (res.steps.length) {
+        haptic('error');
+        await this.view.play(res.steps);
+      }
       this.busy = false;
       this.scheduleIdle();
       return false;
     }
-    if (m.type === 'swap' && this.isComboSwap(res.steps)) this.callout('Kombo!', 4);
+    if (m.type === 'swap' && this.isComboSwap(res.steps)) {
+      this.callout('Kombo!', 4);
+      haptic('heavy');
+    } else if (this.state.stats.specialsUsed > specialsBefore) haptic('tap');
     // timed mode: every special that goes off adds a second
     if (this.mode === 'timed' && this.timeLeft > 0) {
       const bonus = Math.min(5, this.state.stats.specialsUsed - specialsBefore);
@@ -813,6 +820,7 @@ export class GameScreen {
     this.ended = true;
     clearTimeout(this.idleTimer);
     gameSfx.play('win');
+    haptic('success');
     this.callout('Úkol splněn!', 6, 'win');
     await new Promise((r) => setTimeout(r, 900));
     if (!this.active) return;

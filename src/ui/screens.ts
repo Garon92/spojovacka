@@ -126,7 +126,7 @@ export class MapScreen {
           'button',
           {
             type: 'button',
-            class: `lvl${open ? '' : ' is-locked'}${rec.stars > 0 ? ' is-done' : ''}${l.id === current ? ' is-current' : ''}`,
+            class: `lvl${open ? '' : ' is-locked'}${rec.stars > 0 ? ' is-done' : ''}${l.id === current ? ' is-current' : ''}${l.id % 10 === 0 ? ' is-boss' : ''}`,
             style: `--i:${i}`,
             'aria-label': open ? `Úroveň ${l.id}${rec.stars ? `, ${rec.stars} ${rec.stars === 1 ? 'hvězda' : 'hvězdy'}` : ''}` : `Úroveň ${l.id}, zamčeno`,
             disabled: !open,
@@ -134,6 +134,7 @@ export class MapScreen {
           h('span', { class: 'lvl__num' }, open ? String(l.id) : '🔒'),
           open ? starsMini(rec.stars) : null,
           l.tip && open && rec.stars === 0 ? h('span', { class: 'lvl__new', 'aria-hidden': 'true' }, 'nové') : null,
+          l.id % 10 === 0 ? h('span', { class: 'lvl__crown', 'aria-hidden': 'true', title: 'Závěrečná úroveň světa' }, '👑') : null,
         );
         node.addEventListener('click', () => {
           kitSfx.tap();

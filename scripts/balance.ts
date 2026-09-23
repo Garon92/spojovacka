@@ -34,12 +34,22 @@ export function targetWinRate(l: LevelDef): number {
   return Math.min(0.98, Math.max(0.5, t));
 }
 
-function movesNeeded(l: LevelDef, seed: number): number {
+/** a casual (young) player: sees only a few moves and often picks any of them */
+export function weakTarget(l: LevelDef): number {
+  const inWorld = (l.id - 1) % 10;
+  const base = [0.85, 0.7, 0.58, 0.46][l.world];
+  let t = base - (0.06 * inWorld) / 9;
+  if (inWorld === 9) t -= 0.04;
+  if (l.tip) t += 0.04;
+  return Math.min(0.9, Math.max(0.3, t));
+}
+
+function movesNeeded(l: LevelDef, seed: number, weak = false): number {
   const g = createGame({ ...levelConfig(l), moves: 200 }, seed);
   const rng = createRng(seed * 7 + 1);
   for (let i = 0; i < 200; i++) {
     if (isWon(g)) return g.movesMade;
-    const m = chooseMove(g, rng, SKILL);
+    const m = weak ? chooseMove(g, rng, 0.3, 6) : chooseMove(g, rng, SKILL);
     if (!m) return Infinity;
     playMove(g, m);
   }
@@ -66,7 +76,7 @@ const out: Record<string, { moves: number; stars: [number, number] }> = write
   ? JSON.parse(fs.readFileSync(new URL('../src/core/balance.json', import.meta.url), 'utf8'))
   : {};
 
-console.log('lvl  target  p50  moves  win%   ★★     ★★★   (ms)');
+console.log('lvl  target  p50  moves  win%   ★★     ★★★   (ms)   [weak target]');
 for (const l of LEVELS) {
   if (only && !only.includes(l.id)) continue;
   const t0 = Date.now();
@@ -77,6 +87,12 @@ for (const l of LEVELS) {
   // generous percentile for the target win rate, but cut long unlucky tails (median × 1.7)
   const p50 = pct(need, 0.5);
   let moves = Math.max(10, Math.min(45, pct(need, target) + 2, Math.round(p50 * 1.7) + 3));
+  // …and make sure a casual young player has a fair chance too
+  const weak: number[] = [];
+  for (let g = 0; g < GAMES; g++) weak.push(movesNeeded(l, 3000 + g * 29 + l.id, true));
+  weak.sort((a, b) => a - b);
+  const weakMoves = Math.min(45, pct(weak, weakTarget(l)) + 1);
+  moves = Math.max(moves, weakMoves);
   let wins: number[] = [];
   let won = 0;
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -98,7 +114,7 @@ for (const l of LEVELS) {
   const s3 = wins.length ? Math.max(s2 + 300, round(pct(wins, 0.8), 100)) : l.stars[1];
   out[String(l.id)] = { moves, stars: [s2, s3] };
   console.log(
-    `${String(l.id).padStart(3)}  ${(target * 100).toFixed(0).padStart(5)}%  ${String(pct(need, 0.5)).padStart(3)}  ${String(moves).padStart(5)}  ${((won / GAMES) * 100).toFixed(0).padStart(4)}%  ${String(s2).padStart(6)}  ${String(s3).padStart(6)}  (${Date.now() - t0})`,
+    `${String(l.id).padStart(3)}  ${(target * 100).toFixed(0).padStart(5)}%  ${String(pct(need, 0.5)).padStart(3)}  ${String(moves).padStart(5)}  ${((won / GAMES) * 100).toFixed(0).padStart(4)}%  ${String(s2).padStart(6)}  ${String(s3).padStart(6)}  (${Date.now() - t0})  [${(weakTarget(l) * 100).toFixed(0)}% → ${weakMoves}]`,
   );
 }
 if (write) {

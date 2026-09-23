@@ -496,6 +496,17 @@ html[data-scheme='dark'] .lvl.is-locked,
   border-radius: var(--g92-radius-pill);
   box-shadow: var(--g92-shadow-1);
 }
+.lvl__crown {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-8deg);
+  font-size: 20px;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.25));
+}
+.lvl.is-boss {
+  border-color: #fde68a;
+}
 .stars-mini {
   display: inline-flex;
   gap: 0;

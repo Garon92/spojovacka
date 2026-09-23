@@ -9,7 +9,7 @@ Součást rozcestníku [garon92.github.io](https://garon92.github.io/) (sdílen�
 - **Úrovně** – mapa se 40 úrovněmi (Rozkvetlá louka, Tajemný les, Zamrzlé jezero, Hvězdná noc). Každá úroveň má
   úkoly a omezený počet tahů, za body 1–3 hvězdy. Zbylé tahy se na konci promění v rakety (bonus).
 - **Pohoda** – pro nejmenší: bez tahů, bez času, bez prohry. Na výběr 4, 5 nebo 6 barev.
-- **Na čas** – 90 sekund, co nejvíc bodů, rekord pro každou obtížnost.
+- **Na čas** – 90 sekund, co nejvíc bodů, každý odpálený speciál přidá sekundu; rekord pro každou obtížnost.
 - **Zvířátka** – kolečko se zvířátkem z původní hry (běží tím rychleji, čím víc bodů máš). Za mince 🪙 z her si koupíš
   další zvířátka (myška, potkan, křeček, pejsek, kočička, zajíček, dinosaurus, liška).
 
@@ -44,7 +44,7 @@ npm run dev        # http://localhost:5177/spojovacka/
 npm run test       # Vitest – herní logika (shody, speciály, gravitace, míchání, cíle…)
 npm run typecheck
 npm run build      # dist/ (PWA, funguje offline)
-npm run balance    # simulace botem → počty tahů a hranice hvězd (src/core/balance.json)
+npm run balance    # simulace (silný bot + „malý hráč“) → počty tahů a hranice hvězd (src/core/balance.json)
 ```
 
 Stack: Vite + TypeScript (strict), bez frameworku, canvas 2D, `vite-plugin-pwa`, Vitest.
