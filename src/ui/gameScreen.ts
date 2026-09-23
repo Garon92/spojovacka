@@ -106,6 +106,8 @@ export class GameScreen {
   private timerRaf = 0;
   private lastTickSec = -1;
   private extraBought = 0;
+  /** bumps on every start/leave so stale async flows (dialogs, countdown) can bail out */
+  private session = 0;
   private unsubs: (() => void)[] = [];
   private resizeObs: ResizeObserver;
   private goalEls: { el: HTMLElement; n: HTMLElement }[] = [];
@@ -208,18 +210,20 @@ export class GameScreen {
   async startLevel(id: number) {
     const level = levelById(id);
     if (!level) return this.nav.go('#/mapa');
+    const sid = ++this.session;
     this.mode = 'level';
     this.level = level;
     this.extraBought = 0;
     this.setup(createGame(levelConfig(level), randomSeed()));
     const ok = await this.levelIntro(level);
-    if (!this.active) return;
+    if (!this.active || sid !== this.session) return;
     if (!ok) return this.nav.go('#/mapa');
     this.begin();
     if (level.id === 1) this.scheduleIdle(1800);
   }
 
   async startRelax() {
+    const sid = ++this.session;
     this.mode = 'relax';
     this.level = null;
     const prev = store.get('relaxDiff');
@@ -243,7 +247,7 @@ export class GameScreen {
       container: this.el,
       backdrop: 'blur',
     });
-    if (!this.active) return;
+    if (!this.active || sid !== this.session) return;
     const diff = (res.difficulty as Difficulty) ?? 'easy';
     store.set('relaxDiff', diff);
     this.diff = diff;
@@ -252,6 +256,7 @@ export class GameScreen {
   }
 
   async startTimed(skipIntro = false) {
+    const sid = ++this.session;
     this.mode = 'timed';
     this.level = null;
     let diff = store.get('timedDiff');
@@ -277,7 +282,7 @@ export class GameScreen {
         container: this.el,
         backdrop: 'blur',
       });
-      if (!this.active) return;
+      if (!this.active || sid !== this.session) return;
       diff = (res.difficulty as Difficulty) ?? 'normal';
       store.set('timedDiff', diff);
       this.diff = diff;
@@ -285,9 +290,8 @@ export class GameScreen {
       this.timeLeft = TIMED_SECONDS;
       this.renderHud();
     }
-    this.diff = diff;
     await countdown({ container: this.el });
-    if (!this.active) return;
+    if (!this.active || sid !== this.session) return;
     this.begin();
     this.startTimer();
   }
@@ -310,6 +314,7 @@ export class GameScreen {
 
   /** called when leaving the screen */
   leave() {
+    this.session++;
     this.active = false;
     this.ended = true;
     this.el.hidden = true;
