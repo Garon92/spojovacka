@@ -9,6 +9,11 @@ import type { Nav } from './nav';
 
 const fmt = (n: number) => n.toLocaleString('cs-CZ');
 
+/** in-app "home" – a labelled house pill, clearly different from the appbar's "‹ Menu" (QA SPOJ-07) */
+function homeButton() {
+  return h('button', { type: 'button', class: 'g92-btn g92-btn--secondary g92-btn--sm home-btn', html: UI_ICONS.home }, 'Domů');
+}
+
 function starsMini(n: number) {
   return h('span', { class: 'stars-mini', 'aria-label': `${n} ze 3 hvězd`, html: [0, 1, 2].map((i) => `<span class="${i < n ? 'on' : ''}">${UI_ICONS.star}</span>`).join('') });
 }
@@ -25,9 +30,9 @@ function starPill() {
 
 function dailyText(): string {
   const d = dailyState();
-  if (d.doneToday) return `Splněno ✓ · série ${d.streak} 🔥`;
-  if (d.streak > 0) return `Série ${d.streak} 🔥 – pokračuj!`;
-  return 'Nová každý den · 🪙 50';
+  if (d.doneToday) return `Splněno ✓ · série\u00a0${d.streak}\u00a0🔥`;
+  if (d.streak > 0) return `Série\u00a0${d.streak}\u00a0🔥 – pokračuj!`;
+  return 'Každý den · 🪙\u00a050';
 }
 
 export class HomeScreen {
@@ -74,11 +79,11 @@ export class HomeScreen {
           'div',
           { class: 'home__modes' },
           card('daily', '📅', 'Denní výzva', dailyText(), '#/denni'),
-          card('relax', '🧸', 'Pohoda', 'Bez prohry, pro nejmenší', '#/pohoda'),
-          card('timed', '⏱️', 'Na čas', bestTimed > 0 ? `90 sekund · rekord ${fmt(bestTimed)}` : '90 sekund na co nejvíc bodů', '#/na-cas'),
-          card('pets', SKINS.find((s) => s.id === store.get('activeSkin'))?.emoji ?? '🐭', 'Zvířátka', 'Kolečko a nová zvířátka za mince', '#/zviratka'),
-          card('trophies', '🏆', 'Úspěchy', `${unlockedCount()} z ${ACHIEVEMENTS.length} odemčeno`, '#/uspechy'),
-          card('help', '❓', 'Jak hrát', 'Speciály, komba a překážky', '#/jak-hrat'),
+          card('relax', '🧸', 'Pohoda', 'Bez prohry', '#/pohoda'),
+          card('timed', '⏱️', 'Na čas', bestTimed > 0 ? `Rekord ${fmt(bestTimed)}` : '90 sekund', '#/na-cas'),
+          card('pets', SKINS.find((s) => s.id === store.get('activeSkin'))?.emoji ?? '🐭', 'Zvířátka', 'Kolečko a mazlíčci', '#/zviratka'),
+          card('trophies', '🏆', 'Úspěchy', `${unlockedCount()}\u00a0z\u00a0${ACHIEVEMENTS.length}`, '#/uspechy'),
+          card('help', '❓', 'Jak hrát', 'Speciály a překážky', '#/jak-hrat'),
         ),
         this.statsLine(),
       ),
@@ -166,7 +171,7 @@ export class MapScreen {
   }
 
   private back() {
-    const b = h('button', { type: 'button', class: 'g92-btn g92-btn--ghost g92-btn--icon', 'aria-label': 'Zpět', html: UI_ICONS.back });
+    const b = homeButton();
     b.addEventListener('click', () => this.nav.go('#/'));
     return b;
   }
@@ -190,7 +195,7 @@ export class PetsScreen {
     this.runner = new Runner(canvas);
     this.runner.skin = store.get('activeSkin');
     this.runner.speed = 0.45;
-    const back = h('button', { type: 'button', class: 'g92-btn g92-btn--ghost g92-btn--icon', 'aria-label': 'Zpět', html: UI_ICONS.back });
+    const back = homeButton();
     back.addEventListener('click', () => this.nav.go('#/'));
     const grid = h('div', { class: 'pets__grid' });
     const owned = store.get('ownedSkins');
@@ -199,10 +204,16 @@ export class PetsScreen {
     for (const s of SKINS) {
       const has = owned.includes(s.id);
       const isActive = s.id === active;
+      const affordable = coins >= s.cost;
+      // unaffordable pets: disabled button that says how much is missing (QA SPOJ-13)
       const btn = h(
         'button',
-        { type: 'button', class: `g92-btn ${isActive ? 'g92-btn--success' : has ? 'g92-btn--secondary' : coins >= s.cost ? '' : 'g92-btn--ghost'} g92-btn--block`, disabled: isActive },
-        isActive ? 'Běhá v kolečku' : has ? 'Vybrat' : `Koupit · 🪙 ${s.cost}`,
+        {
+          type: 'button',
+          class: `g92-btn ${isActive ? 'g92-btn--success' : has ? 'g92-btn--secondary' : affordable ? '' : 'g92-btn--soft'} g92-btn--block`,
+          disabled: isActive || (!has && !affordable),
+        },
+        isActive ? 'Běhá v kolečku' : has ? 'Vybrat' : affordable ? `Koupit · 🪙\u00a0${s.cost}` : `🪙\u00a0${s.cost} · chybí\u00a0${s.cost - coins}`,
       );
       btn.addEventListener('click', () => void this.choose(s.id));
       grid.append(
@@ -238,15 +249,15 @@ export class PetsScreen {
       const coins = store.get('coins');
       if (coins < skin.cost) {
         kitSfx.error();
-        toast(`Na ${skin.name.toLowerCase()} potřebuješ 🪙 ${skin.cost}. Máš ${coins}.`, { variant: 'danger' });
+        toast(`Na ${skin.acc} potřebuješ 🪙 ${skin.cost} (máš ${coins}).`, { variant: 'danger' });
         return;
       }
-      const ok = await confirmDialog({ title: `Koupit – ${skin.name}?`, message: `Stojí 🪙 ${skin.cost}. Zbyde ti 🪙 ${coins - skin.cost}.`, confirmLabel: 'Koupit' });
+      const ok = await confirmDialog({ title: `Koupit ${skin.acc}?`, message: `Stojí 🪙 ${skin.cost}. Zbyde ti 🪙 ${coins - skin.cost}.`, confirmLabel: 'Koupit' });
       if (!ok) return;
       store.set('coins', coins - skin.cost);
       store.set('ownedSkins', [...owned, id]);
       kitSfx.coin();
-      toast(`${skin.emoji} ${skin.name} je tvoje!`, { variant: 'success' });
+      toast(`${skin.emoji} ${skin.name} teď běhá v kolečku!`, { variant: 'success' });
       for (const a of checkAchievements()) setTimeout(() => toast(`${a.emoji} Nový úspěch: ${a.name}`, { variant: 'success', icon: UI_ICONS.trophy }), 1200);
     } else kitSfx.tap();
     store.set('activeSkin', id);
@@ -275,7 +286,7 @@ export class TrophiesScreen {
   render() {
     checkAchievements();
     const have = new Set(store.get('achievements'));
-    const back = h('button', { type: 'button', class: 'g92-btn g92-btn--ghost g92-btn--icon', 'aria-label': 'Zpět', html: UI_ICONS.back });
+    const back = homeButton();
     back.addEventListener('click', () => this.nav.go('#/'));
     const list = h('ul', { class: 'trophies__list' });
     for (const a of ACHIEVEMENTS) {

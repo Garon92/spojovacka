@@ -6,19 +6,21 @@
 export interface SkinDef {
   id: string;
   name: string;
+  /** accusative ("Na potkana…", "Koupit potkana?") */
+  acc: string;
   emoji: string;
   cost: number;
 }
 
 export const SKINS: SkinDef[] = [
-  { id: 'mouse', name: 'Myška', emoji: '🐭', cost: 0 },
-  { id: 'rat', name: 'Potkan', emoji: '🐀', cost: 60 },
-  { id: 'hamster', name: 'Křeček', emoji: '🐹', cost: 100 },
-  { id: 'dog', name: 'Pejsek', emoji: '🐶', cost: 150 },
-  { id: 'cat', name: 'Kočička', emoji: '🐱', cost: 200 },
-  { id: 'rabbit', name: 'Zajíček', emoji: '🐰', cost: 260 },
-  { id: 'dino', name: 'Dinosaurus', emoji: '🦖', cost: 320 },
-  { id: 'fox', name: 'Liška', emoji: '🦊', cost: 400 },
+  { id: 'mouse', name: 'Myška', acc: 'myšku', emoji: '🐭', cost: 0 },
+  { id: 'rat', name: 'Potkan', acc: 'potkana', emoji: '🐀', cost: 60 },
+  { id: 'hamster', name: 'Křeček', acc: 'křečka', emoji: '🐹', cost: 100 },
+  { id: 'dog', name: 'Pejsek', acc: 'pejska', emoji: '🐶', cost: 150 },
+  { id: 'cat', name: 'Kočička', acc: 'kočičku', emoji: '🐱', cost: 200 },
+  { id: 'rabbit', name: 'Zajíček', acc: 'zajíčka', emoji: '🐰', cost: 260 },
+  { id: 'dino', name: 'Dinosaurus', acc: 'dinosaura', emoji: '🦖', cost: 320 },
+  { id: 'fox', name: 'Liška', acc: 'lišku', emoji: '🦊', cost: 400 },
 ];
 
 interface AnimalCfg {
@@ -34,11 +36,13 @@ interface AnimalCfg {
   bushy?: boolean;
   stripes?: boolean;
   tailWidth?: number;
+  /** overall size (1 = mouse) */
+  scale?: number;
 }
 
 const CFG: Record<string, AnimalCfg> = {
   mouse: { body: '#aab3c2', belly: '#dbe2ee', tail: '#c8cfdb', ear: '#e1a7b7', snout: 1, tailLen: 1.05, ears: 'round', whiskers: true },
-  rat: { body: '#8b93a6', belly: '#c7ceda', tail: '#b7bfcc', ear: '#d6b3c2', snout: 1.05, tailLen: 1.25, ears: 'round', whiskers: true },
+  rat: { body: '#7c5a45', belly: '#b89478', tail: '#f4a6b8', ear: '#e8a0b0', snout: 1.35, tailLen: 1.6, ears: 'round', whiskers: true, scale: 1.18, tailWidth: 0.8 },
   hamster: { body: '#e8a45c', belly: '#fbe7cf', tail: '#e8a45c', ear: '#f4b9a4', snout: 0.85, tailLen: 0.25, ears: 'round', whiskers: true },
   dog: { body: '#b48a62', belly: '#e7d3b7', tail: '#caa27b', ear: '#8e6846', snout: 1.18, tailLen: 0.7, ears: 'floppy', whiskers: false },
   cat: { body: '#94a3b8', belly: '#e2e8f0', tail: '#94a3b8', ear: '#f9a8d4', snout: 0.9, tailLen: 1.2, ears: 'pointy', whiskers: true, stripes: true, tailWidth: 0.7 },
@@ -49,7 +53,7 @@ const CFG: Record<string, AnimalCfg> = {
 
 function drawAnimal(ctx: CanvasRenderingContext2D, skin: string, sizePx: number, phase: number) {
   const cfg = CFG[skin] ?? CFG.mouse;
-  const u = sizePx / 10;
+  const u = (sizePx / 10) * (cfg.scale ?? 1);
   const run = Math.sin(phase);
   const run2 = Math.sin(phase + Math.PI);
   const bob = Math.sin(phase * 0.5) * (u * 0.25);
@@ -371,8 +375,12 @@ export function animalPortrait(skin: string, cssSize: number): HTMLCanvasElement
   c.width = c.height = Math.round(cssSize * dpr);
   c.style.width = c.style.height = `${cssSize}px`;
   const ctx = c.getContext('2d')!;
-  const u = c.width / 13;
-  ctx.translate(c.width / 2 + 0.85 * u, c.height / 2 + 0.3 * u);
-  drawAnimal(ctx, skin, u * 10, 0.8);
+  // fit the whole animal (tail → snout) into the square
+  const cfg = CFG[skin] ?? CFG.mouse;
+  const left = cfg.bushy ? 7 : Math.max(3.5, 6.6 * cfg.tailLen);
+  const right = 3.1 + 1.2 * cfg.snout + 1;
+  const U = (c.width * 0.88) / (left + right);
+  ctx.translate(c.width * 0.06 + left * U, c.height * 0.56);
+  drawAnimal(ctx, skin, (U * 10) / (cfg.scale ?? 1), 0.8);
   return c;
 }

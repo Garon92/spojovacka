@@ -30,7 +30,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'world4', emoji: '🌙', name: 'Hvězdář', desc: 'Splň všechny úrovně Hvězdné noci.', progress: () => [levelsWith((s) => s > 0, 31, 40), 10] },
   { id: 'stars3', emoji: '⭐', name: 'Tři hvězdičky', desc: 'Získej 3 hvězdy v 10 úrovních.', progress: () => [levelsWith((s) => s >= 3), 10] },
   { id: 'perfect', emoji: '👑', name: 'Mistr Spojovačky', desc: 'Všech 40 úrovní za 3 hvězdy.', progress: () => [levelsWith((s) => s >= 3), LEVELS.length] },
-  { id: 'timed', emoji: '⏱️', name: 'Rychlé ruce', desc: 'Na čas (střední) nasbírej 10 000 bodů.', progress: () => [Math.min(10000, store.get('timedBest').normal), 10000] },
+  { id: 'timed', emoji: '⏱️', name: 'Rychlé ruce', desc: 'Na čas (normální) nasbírej 10 000 bodů.', progress: () => [Math.min(10000, store.get('timedBest').normal), 10000] },
   { id: 'relax', emoji: '🧸', name: 'Pohodář', desc: 'V Pohodě nasbírej 20 000 bodů v jedné hře.', progress: () => [Math.min(20000, store.get('relaxBest')), 20000] },
   { id: 'pets', emoji: '🐹', name: 'Chovatel', desc: 'Měj aspoň 4 zvířátka.', progress: () => [Math.min(4, store.get('ownedSkins').length), 4] },
   { id: 'daily1', emoji: '📅', name: 'Denní hráč', desc: 'Splň denní výzvu.', progress: () => [Math.min(1, dailyState().best), 1] },

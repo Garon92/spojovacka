@@ -36,6 +36,8 @@ function show(name: ScreenName) {
   if (current === 'game') game.leave();
   if (current === 'pets') pets.leave();
   current = name;
+  // reset scroll first – the map then scrolls to the current level itself (QA SPOJ-05)
+  window.scrollTo({ top: 0 });
   home.el.hidden = name !== 'home';
   map.el.hidden = name !== 'map';
   pets.el.hidden = name !== 'pets';
@@ -56,7 +58,6 @@ function show(name: ScreenName) {
   } else {
     game.enter();
   }
-  window.scrollTo({ top: 0 });
 }
 
 function route() {
@@ -107,6 +108,8 @@ appbar.addEventListener('g92-help', (e) => {
 });
 appbar.addEventListener('g92-settings', (e) => {
   e.preventDefault();
+  // settings cover the board → pause running games (timer!) like help does (QA SPOJ-04)
+  if (current === 'game') void game.pause();
   openSettingsDialog({ extra: settingsExtra() });
 });
 

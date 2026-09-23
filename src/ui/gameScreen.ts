@@ -21,7 +21,6 @@ import {
   showResults,
   showStart,
   subscribeSettings,
-  toast,
 } from '../kit';
 import { BoardView, type ViewEvent } from '../render/boardView';
 import { Runner, speedFromScore } from '../render/runner';
@@ -40,7 +39,7 @@ import {
   type Difficulty,
 } from '../app/save';
 import { TIPS, goalIcon, goalLabel, howToContent } from './content';
-import { checkAchievements } from '../app/achievements';
+import { checkAchievements, type Achievement } from '../app/achievements';
 import type { Nav } from './nav';
 
 export type Mode = 'level' | 'relax' | 'timed';
@@ -57,10 +56,11 @@ export const TIMED_STARS: Record<Difficulty, [number, number, number]> = {
 const EXTRA_MOVES = 5;
 const EXTRA_COST = 30;
 const CALLOUTS = ['', '', 'Dobře!', 'Super!', 'Skvělé!', 'Úžasné!', 'Fantastické!', 'Neuvěřitelné!'];
+/** kit wording (C-12): Lehká / Normální / Těžká, the flavour goes into the hint */
 const DIFFICULTIES = [
-  { id: 'easy', label: 'Snadné', icon: '🌱', hint: '4 barvy' },
-  { id: 'normal', label: 'Střední', icon: '🌼', hint: '5 barev' },
-  { id: 'hard', label: 'Pestré', icon: '🌈', hint: '6 barev' },
+  { id: 'easy', label: 'Lehká', icon: '🐢', hint: '4 barvy' },
+  { id: 'normal', label: 'Normální', icon: '🐇', hint: '5 barev' },
+  { id: 'hard', label: 'Těžká', icon: '🔥', hint: '6 barev' },
 ];
 const PLAIN8 = ['........', '........', '........', '........', '........', '........', '........', '........'];
 
@@ -269,8 +269,8 @@ export class GameScreen {
       icon: '🧸',
       difficulties: DIFFICULTIES,
       difficulty: prev,
-      difficultyLabel: 'Kolik barev?',
-      best: { label: 'Nejlepší', value: store.get('relaxBest') },
+      difficultyLabel: 'Obtížnost',
+      best: { label: 'Rekord', value: store.get('relaxBest') },
       howTo: [
         { icon: '👆', text: 'Přetáhni dílek na souseda' },
         { icon: '✨', text: 'Tři stejné zmizí' },
@@ -418,7 +418,7 @@ export class GameScreen {
     this.hudInfo.hidden = this.displayGoals.length > 0;
     if (this.mode !== 'level') {
       const best = this.mode === 'timed' ? store.get('timedBest')[this.diff] : store.get('relaxBest');
-      this.hudInfo.innerHTML = best > 0 ? `${UI_ICONS.trophy}<span>${this.mode === 'timed' ? 'Rekord' : 'Nejlepší'} <b>${fmt(best)}</b></span>` : '';
+      this.hudInfo.innerHTML = best > 0 ? `${UI_ICONS.trophy}<span>Rekord <b>${fmt(best)}</b></span>` : '';
     }
     this.updateGoals();
   }
@@ -788,7 +788,7 @@ export class GameScreen {
       subtitle: this.mode === 'level' ? this.levelTitle() : this.mode === 'timed' ? 'Na čas' : 'Pohoda',
       stats,
       menuHref: null,
-      menuLabel: this.mode === 'level' ? (this.daily ? 'Konec' : 'Mapa') : this.mode === 'relax' ? 'Skončit' : 'Konec',
+      menuLabel: 'Ukončit hru',
       container: this.el,
       ...(extra ? { extra } : {}),
     });
@@ -894,9 +894,10 @@ export class GameScreen {
     const { newStars } = submitLevel(level.id, stars, score);
     const coins = coinsForScore(score) + newStars * 10;
     addCoins(coins);
-    this.commitGame(true);
+    const fresh = this.commitGame(true);
     this.reportActivity();
     const isLast = level.id >= LEVELS.length;
+    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: `Úroveň ${level.id} splněna!`,
       subtitle:
@@ -920,10 +921,11 @@ export class GameScreen {
       ],
       againLabel: isLast ? 'Mapa úrovní' : 'Další úroveň',
       againIcon: isLast ? UI_ICONS.grid : UI_ICONS.arrowRight,
-      actions: [{ label: 'Znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
+      actions: [{ label: 'Hrát znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
       menuHref: null,
       menuLabel: 'Mapa',
       container: this.el,
+      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'again') this.nav.go(isLast ? '#/mapa' : `#/uroven/${level.id + 1}`);
@@ -936,7 +938,8 @@ export class GameScreen {
     const { first, streak } = submitDaily(score);
     const coins = coinsForScore(score) + (first ? 50 : 0);
     addCoins(coins);
-    this.commitGame(true);
+    const fresh = this.commitGame(true);
+    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: 'Denní výzva splněna!',
       subtitle: first ? `🔥 Série ${streak} ${streak === 1 ? 'den' : streak < 5 ? 'dny' : 'dní'}. Zítra tě čeká nová výzva!` : 'Zítra tě čeká nová výzva!',
@@ -949,39 +952,64 @@ export class GameScreen {
         { label: 'Série', value: `${streak} 🔥` },
         { label: 'Nejdelší řetěz', value: `×${this.state.stats.maxCascade}` },
       ],
-      againLabel: 'Hlavní nabídka',
-      againIcon: UI_ICONS.home,
-      actions: [{ label: 'Znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
+      againLabel: 'Mapa úrovní',
+      againIcon: UI_ICONS.grid,
+      actions: [{ label: 'Hrát znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
       menuHref: null,
-      menuLabel: 'Mapa úrovní',
+      menuLabel: 'Domů',
       container: this.el,
+      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
-    if (choice === 'again') this.nav.go('#/');
+    if (choice === 'again') this.nav.go('#/mapa');
     else if (choice === 'retry') this.nav.go('#/denni', true);
-    else this.nav.go('#/mapa');
+    else this.nav.go('#/');
   }
 
   private async loseLevel() {
     const level = this.level!;
     this.ended = true;
     clearTimeout(this.idleTimer);
-    this.commitGame(false);
-    const missing = this.state.goals.filter((g) => g.done < g.target).map((g) => `${goalLabel(g).replace(/\s*\(\d+×\)/, '')}: chybí ${g.kind === 'score' ? fmt(g.target - g.done) : g.target - g.done}`);
+    const fresh = this.commitGame(false);
+    const theme = store.get('pieceTheme');
+    // what is still missing – as icon chips (non-readers see it too)
+    const missing = this.state.goals.filter((g) => g.done < g.target);
+    const chips = h(
+      'ul',
+      { class: 'lose__goals', 'aria-label': 'Co ještě chybělo' },
+      ...missing.map((g) => {
+        const left = g.target - g.done;
+        return h('li', { class: 'goal', title: goalLabel(g) }, goalIcon(theme, g, 28), h('span', { class: 'goal__n g92-tabular' }, g.kind === 'score' ? fmt(left) : String(left)), h('span', { class: 'g92-sr-only' }, `${goalLabel(g)} – chybí ${left}`));
+      }),
+    );
     const cost = EXTRA_COST * (this.extraBought + 1);
     const coins = store.get('coins');
     const actions: { label: string; value: string; variant?: 'primary' | 'secondary' | 'ghost' | 'soft' }[] = [];
-    if (coins >= cost) actions.push({ label: `+${EXTRA_MOVES} tahů za 🪙 ${cost}`, value: 'extra', variant: 'soft' });
+    const parts: Node[] = [chips];
+    if (coins >= cost) actions.push({ label: `+${EXTRA_MOVES} tahů · 🪙 ${cost}`, value: 'extra', variant: 'soft' });
+    else {
+      // show the option exists, but that the coins are missing
+      parts.push(
+        h(
+          'button',
+          { type: 'button', class: 'g92-btn g92-btn--soft g92-btn--block lose__extra', disabled: true, 'aria-disabled': 'true' },
+          `+${EXTRA_MOVES} tahů · 🪙 ${cost}`,
+          h('small', null, ` (máš ${coins})`),
+        ),
+      );
+    }
+    const extra = this.resultsExtra(fresh, parts);
     const choice = await showResults({
       title: 'Došly tahy',
-      subtitle: missing.join(' · '),
+      subtitle: 'Tohle ještě chybělo:',
       score: this.state.score,
       lost: true,
-      againLabel: 'Zkusit znovu',
+      againLabel: 'Hrát znovu',
       actions,
       menuHref: null,
-      menuLabel: this.daily ? 'Hlavní nabídka' : 'Mapa',
+      menuLabel: this.daily ? 'Domů' : 'Mapa',
       container: this.el,
+      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'extra') {
@@ -990,7 +1018,7 @@ export class GameScreen {
       this.state.movesLeft = EXTRA_MOVES;
       this.ended = false;
       this.renderHud();
-      toast(`+${EXTRA_MOVES} tahů! Zbývá ti 🪙 ${store.get('coins')}.`, { variant: 'accent' });
+      this.callout(`+${EXTRA_MOVES} tahů!`, 4);
       this.scheduleIdle();
       return;
     }
@@ -1016,8 +1044,9 @@ export class GameScreen {
     if (isNewBest) store.set('timedBest', { ...bestMap, [this.diff]: score });
     const coins = coinsForScore(score);
     addCoins(coins);
-    this.commitGame(false);
+    const fresh = this.commitGame(false);
     this.reportActivity();
+    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
       title: isNewBest && prevBest > 0 ? 'Nový rekord!' : 'Čas vypršel!',
       subtitle: `${DIFFICULTIES.find((d) => d.id === this.diff)?.label ?? ''} · ${TIMED_SECONDS} s`,
@@ -1032,8 +1061,9 @@ export class GameScreen {
       ],
       againLabel: 'Hrát znovu',
       menuHref: null,
-      menuLabel: 'Hlavní nabídka',
+      menuLabel: 'Domů',
       container: this.el,
+      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'again') void this.startTimed(true);
@@ -1048,10 +1078,11 @@ export class GameScreen {
     if (score > prevBest) store.set('relaxBest', score);
     const coins = coinsForScore(score);
     addCoins(coins);
-    this.commitGame(false);
+    const fresh = this.commitGame(false);
     this.reportActivity();
+    const extra = this.resultsExtra(fresh);
     const choice = await showResults({
-      title: 'Hezky sis zahrál(a)!',
+      title: 'Hezká hra!',
       score,
       best: Math.max(prevBest, score),
       isNewBest: score > prevBest && prevBest > 0,
@@ -1059,18 +1090,42 @@ export class GameScreen {
         { label: 'Mince', value: `+${coins}`, icon: '🪙' },
         { label: 'Spojeno dílků', value: this.state.stats.cleared },
       ],
-      againLabel: 'Hrát dál',
+      againLabel: 'Hrát znovu',
       menuHref: null,
-      menuLabel: 'Hlavní nabídka',
+      menuLabel: 'Domů',
       container: this.el,
+      ...(extra ? { extra } : {}),
     });
     if (!this.active) return;
     if (choice === 'again') this.restart();
     else this.nav.go('#/');
   }
 
-  /** write this game's stats (only what wasn't written yet) and announce new achievements */
-  private commitGame(win: boolean) {
+  /**
+   * Extra block for the results overlay: new achievements as badges (instead of toasts that would
+   * cover the buttons – QA SPOJ-03) plus any mode-specific parts.
+   */
+  private resultsExtra(fresh: Achievement[], parts: Node[] = []): HTMLElement | undefined {
+    if (!fresh.length && !parts.length) return undefined;
+    const wrap = h('div', { class: 'results-extra' }, ...parts);
+    if (fresh.length) {
+      wrap.append(
+        h(
+          'div',
+          { class: 'ach-new', role: 'status' },
+          h('span', { class: 'ach-new__label', html: `${UI_ICONS.trophy}<span>${fresh.length === 1 ? 'Nový úspěch' : 'Nové úspěchy'}</span>` }),
+          // at most two badges – the buttons must stay on screen; the rest waits in "Úspěchy"
+          ...fresh.slice(0, 2).map((a) => h('span', { class: 'ach-new__chip' }, h('span', { 'aria-hidden': 'true' }, a.emoji), ` ${a.name}`)),
+          fresh.length > 2 ? h('span', { class: 'ach-new__chip ach-new__more' }, `+${fresh.length - 2} další`) : null,
+        ),
+      );
+      setTimeout(() => gameSfx.play('star', { pitch: 2 }), 900);
+    }
+    return wrap;
+  }
+
+  /** write this game's stats (only what wasn't written yet); returns newly unlocked achievements */
+  private commitGame(win: boolean): Achievement[] {
     const st = this.state.stats;
     const b = this.baseline;
     const chicks = this.state.chicks?.collected ?? 0;
@@ -1090,18 +1145,8 @@ export class GameScreen {
     const any = Object.entries(delta).some(([k, v]) => k !== 'bestCascade' && v > 0) || st.maxCascade > b.maxCascade;
     this.baseline = { ...st, used: { ...st.used }, made: { ...st.made } };
     this.baseChicks = chicks;
-    if (!any) return;
-    recordStats(delta);
-    this.announceAchievements();
-  }
-
-  announceAchievements() {
-    checkAchievements().forEach((a, i) => {
-      setTimeout(() => {
-        toast(`${a.emoji} Nový úspěch: ${a.name}`, { variant: 'success', icon: UI_ICONS.trophy, duration: 4000 });
-        gameSfx.play('star', { pitch: 2 });
-      }, 1600 + i * 900);
-    });
+    if (any) recordStats(delta);
+    return checkAchievements();
   }
 
   private reportActivity() {

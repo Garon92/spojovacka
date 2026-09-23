@@ -259,9 +259,33 @@ html[data-scheme='dark'] .modecard__ico {
   font-size: var(--g92-fs-sm);
   line-height: 1.3;
 }
-@media (max-width: 380px) {
-  .home__modes {
-    grid-template-columns: 1fr;
+/* phones: icon above the text, equal card heights, titles never break (QA SPOJ-06) */
+.home__modes {
+  grid-auto-rows: 1fr;
+}
+.modecard__txt b {
+  white-space: nowrap;
+}
+.modecard__txt span {
+  text-wrap: balance;
+}
+@media (max-width: 440px) {
+  .modecard {
+    flex-direction: column;
+    justify-content: flex-start;
+    text-align: center;
+    gap: 6px;
+    padding: var(--g92-space-3) var(--g92-space-2);
+    min-height: 0;
+  }
+  .modecard__txt {
+    justify-items: center;
+  }
+  .modecard__txt b {
+    font-size: var(--g92-fs-md);
+  }
+  .modecard__txt span {
+    font-size: var(--g92-fs-xs);
   }
 }
 
@@ -647,7 +671,6 @@ html[data-scheme='dark'] .game[data-theme='night'] {
   --board-edge: rgb(255 255 255 / 0.08);
   --cell-a: rgb(76 29 149 / 0.45);
   --cell-b: rgb(49 46 129 / 0.5);
-  color: #ede9fe;
   background:
     radial-gradient(1.5px 1.5px at 10% 20%, #fff 50%, transparent 51%),
     radial-gradient(1.5px 1.5px at 30% 70%, #fff 50%, transparent 51%),
@@ -659,6 +682,14 @@ html[data-scheme='dark'] .game[data-theme='night'] {
 }
 .game[data-theme='relax'] {
   background: linear-gradient(180deg, #fff1f2 0%, #fef3c7 100%);
+}
+/* night world: light text only on our own dark HUD/stage parts – never on kit overlays mounted inside .game */
+.game[data-theme='night'] :is(.hud, .game__title, .game__side) {
+  color: #ede9fe;
+}
+/* kit overlays/dialogs mounted inside the game always use the normal text colour (QA SPOJ-01) */
+.game .g92-overlay__panel {
+  color: var(--g92-text);
 }
 html[data-scheme='dark'] .game[data-theme='relax'] {
   background: linear-gradient(180deg, #2a1420 0%, #2a2210 100%);
@@ -680,7 +711,7 @@ html[data-scheme='dark'] .game[data-theme='timed'] {
   display: none;
 }
 @media (max-aspect-ratio: 3/4) {
-  .game__title {
+  .game[data-mode='level'] .game__title {
     display: block;
     position: absolute;
     left: 0;
@@ -1062,13 +1093,75 @@ html[data-scheme='dark'] .hud__stars span,
     display: none;
   }
 }
-/* very short landscape phones */
-@media (min-aspect-ratio: 6/5) and (max-height: 480px) {
-  .game__btn-txt {
-    display: none;
+/* short landscape phones (844×390 …): compact HUD column that can never push the grid taller than the screen (QA SPOJ-02) */
+@media (min-aspect-ratio: 6/5) and (max-height: 520px) {
+  .game {
+    gap: var(--g92-space-2);
+    padding-top: var(--g92-space-2);
+  }
+  .hud {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--g92-space-2);
+    gap: 6px;
+  }
+  .hud__moves {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 12px;
   }
   .hud__big {
-    font-size: 32px;
+    font-size: 28px;
+  }
+  .hud__goals {
+    gap: 4px;
+  }
+  .goal {
+    font-size: 15px;
+    padding: 2px 8px 2px 2px;
+    gap: 2px;
+  }
+  .goal canvas {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .goal .goal-emoji {
+    font-size: 18px !important;
+  }
+  .goal__n svg {
+    width: 16px;
+    height: 16px;
+  }
+  .hud__score {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 2px;
+    padding: 0 4px;
+  }
+  .hud__score-val {
+    font-size: 20px;
+  }
+  .hud__starline {
+    flex: 1 1 100%;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 6px;
+  }
+  .hud__stars span {
+    width: 16px;
+    height: 16px;
+  }
+  .game__btn {
+    min-height: 44px;
+  }
+  .game__btn-txt {
+    display: none;
   }
   .game__mini {
     display: none;
@@ -1569,4 +1662,85 @@ html[data-scheme='dark'] .game[data-theme='forest'] {
 }
 html[data-scheme='dark'] .game[data-theme='lake'] {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg stroke='%23ffffff' stroke-opacity='0.15' stroke-width='2' stroke-linecap='round'%3E%3Cg transform='translate(30 34)'%3E%3Cpath d='M0 -9V9M-8 -4.5L8 4.5M-8 4.5L8 -4.5'/%3E%3C/g%3E%3Cg transform='translate(110 100) scale(.7)'%3E%3Cpath d='M0 -9V9M-8 -4.5L8 4.5M-8 4.5L8 -4.5'/%3E%3C/g%3E%3C/g%3E%3Ccircle cx='80' cy='20' r='2' fill='%23ffffff' fill-opacity='.15'/%3E%3Ccircle cx='20' cy='120' r='1.6' fill='%23ffffff' fill-opacity='.15'/%3E%3C/svg%3E"), linear-gradient(180deg, #0b1b33 0%, #0c3052 100%);
+}
+
+/* ------------------------------------------------------------------ results extras (QA round) */
+
+.results-extra {
+  display: grid;
+  gap: var(--g92-space-3);
+  justify-items: center;
+  width: 100%;
+}
+.ach-new {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: var(--g92-space-2) var(--g92-space-3);
+  border-radius: var(--g92-radius-md);
+  background: var(--g92-warning-soft);
+  border: 1px solid rgb(245 183 0 / 0.45);
+  animation: ach-in 600ms var(--g92-ease-spring) 500ms both;
+}
+@keyframes ach-in {
+  from {
+    opacity: 0;
+    transform: scale(calc(1 - 0.2 * var(--g92-motion)));
+  }
+}
+.ach-new__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: var(--g92-fw-black);
+  font-size: var(--g92-fs-sm);
+  color: var(--g92-warning);
+}
+.ach-new__label svg {
+  width: 18px;
+  height: 18px;
+}
+.ach-new__chip {
+  padding: 2px 10px;
+  border-radius: var(--g92-radius-pill);
+  background: var(--g92-surface);
+  border: 1px solid var(--g92-border);
+  font-weight: var(--g92-fw-bold);
+  font-size: var(--g92-fs-sm);
+  white-space: nowrap;
+}
+.lose__goals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.lose__extra:disabled {
+  opacity: 0.75;
+}
+.ach-new__more {
+  color: var(--g92-text-muted);
+}
+.lose__extra small {
+  font-weight: var(--g92-fw-medium);
+  opacity: 0.8;
+}
+/* 3 stats → 3 columns even on phones (no orphan tile, QA SPOJ-11) */
+.game .g92-overlay__stats {
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+}
+
+.home-btn {
+  min-height: 44px;
+  gap: 6px;
+  padding-inline: 12px 16px;
+}
+.home-btn svg {
+  width: 20px;
+  height: 20px;
 }

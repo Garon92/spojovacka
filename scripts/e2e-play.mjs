@@ -148,7 +148,7 @@ await wait(500);
   const best = await api(() => JSON.parse(localStorage.getItem('g92:spojovacka:timedBest') ?? '{}'));
   ok('timed best saved', Object.values(best).some((v) => v > 0), JSON.stringify(best));
 }
-// 7) relax: pause → Skončit → results
+// 7) relax: pause → Ukončit hru → results
 {
   await page.goto(base + '#/pohoda');
   await wait(700);
@@ -158,7 +158,7 @@ await wait(500);
   await idle();
   await page.keyboard.press('p');
   await wait(400);
-  await page.getByRole('button', { name: 'Skončit' }).click();
+  await page.getByRole('button', { name: 'Ukončit hru' }).click();
   await page.waitForSelector('.g92-overlay--results', { timeout: 10000 });
   await wait(1000);
   await page.screenshot({ path: path.join(out, 'relax-results-desktop.png') });
