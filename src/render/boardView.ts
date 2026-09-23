@@ -72,6 +72,8 @@ export class BoardView {
   private sprites: SpriteCache | null = null;
   private bg: HTMLCanvasElement | null = null;
   private clip: Path2D | null = null;
+  private accent = '#f59e0b';
+  private font = 'Nunito, system-ui, sans-serif';
   private theme: PieceTheme;
   private dpr = 1;
   /** cell size in device px */
@@ -310,6 +312,8 @@ export class BoardView {
     const ca = this.cssVar('--cell-a', 'rgba(255,255,255,0.55)');
     const cbv = this.cssVar('--cell-b', 'rgba(255,255,255,0.35)');
     const m = Math.round(s * 0.14);
+    this.accent = this.cssVar('--accent', '#f59e0b');
+    this.font = this.cssVar('--font-game', 'Nunito, system-ui, sans-serif');
     const clip = new Path2D();
     g.save();
     g.translate(this.ox, this.oy);
@@ -495,7 +499,7 @@ export class BoardView {
     };
     if (this.selected) ring(this.selected, 'rgba(255,255,255,0.95)', Math.max(2, s * 0.07));
     if (this.cursor) {
-      ring(this.cursor, this.cssVar('--accent', '#f59e0b'), Math.max(2, s * 0.06));
+      ring(this.cursor, this.accent, Math.max(2, s * 0.06));
     }
 
     // effects
@@ -1186,7 +1190,7 @@ export class BoardView {
     const s = this.cell;
     const dur = this.ms(900);
     const size = s * (0.42 + Math.min(4, cascade - 1) * 0.06);
-    const font = this.cssVar('--font-game', 'Nunito, system-ui, sans-serif');
+    const font = this.font;
     this.fx.push({
       until: start + dur + 200,
       draw: (ctx, now) => {

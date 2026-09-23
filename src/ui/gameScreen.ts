@@ -835,7 +835,16 @@ export class GameScreen {
     const isLast = level.id >= LEVELS.length;
     const choice = await showResults({
       title: `Úroveň ${level.id} splněna!`,
-      subtitle: stars === 3 ? 'Všechny tři hvězdy – paráda!' : stars === 2 ? 'Pro třetí hvězdu zkus víc bodů.' : 'Víc bodů = víc hvězd.',
+      subtitle:
+        prev.stars === 0 && level.id % 10 === 0
+          ? isLast
+            ? 'Dohrál(a) jsi všechny úrovně! 🎉'
+            : `Otevřel se nový svět: ${WORLDS[level.world + 1].emoji} ${WORLDS[level.world + 1].name}!`
+          : stars === 3
+            ? 'Všechny tři hvězdy – paráda!'
+            : stars === 2
+              ? 'Pro třetí hvězdu zkus víc bodů.'
+              : 'Víc bodů = víc hvězd.',
       score,
       best: prev.best > 0 ? Math.max(prev.best, score) : null,
       isNewBest: prev.best > 0 && score > prev.best,
