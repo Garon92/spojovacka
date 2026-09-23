@@ -57,7 +57,9 @@ const STYLE = /* css */ `
   gap: 6px;
   height: calc(var(--g92-appbar-h, 60px) + env(safe-area-inset-top, 0px));
   padding: env(safe-area-inset-top, 0px) max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
-  background: var(--g92-surface-glass, rgb(255 255 255 / .75));
+  /* glass tint over the kit page background (not over whatever the app paints on <body>, e.g. a dark game
+     backdrop) so the bar looks identical in every app */
+  background: linear-gradient(var(--g92-surface-glass, rgb(255 255 255 / .75)), var(--g92-surface-glass, rgb(255 255 255 / .75))), var(--g92-bg, #f4f6fb);
   -webkit-backdrop-filter: blur(16px) saturate(1.5);
   backdrop-filter: blur(16px) saturate(1.5);
   border-bottom: 1px solid var(--g92-border, rgb(0 0 0 / .1));
