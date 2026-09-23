@@ -70,8 +70,18 @@ export class HomeScreen {
           card('pets', SKINS.find((s) => s.id === store.get('activeSkin'))?.emoji ?? '🐭', 'Zvířátka', 'Kolečko a nová zvířátka za mince', '#/zviratka'),
           card('help', '❓', 'Jak hrát', 'Speciály, komba a překážky', '#/jak-hrat'),
         ),
+        this.statsLine(),
       ),
     );
+  }
+
+  private statsLine() {
+    const st = store.get('stats');
+    if (st.games === 0) return null;
+    const parts = [`Odehráno ${fmt(st.games)} ${st.games === 1 ? 'hra' : st.games < 5 ? 'hry' : 'her'}`];
+    if (st.tiles > 0) parts.push(`spojeno ${fmt(st.tiles)} dílků`);
+    if (st.bestCascade > 1) parts.push(`nejdelší řetěz ×${st.bestCascade}`);
+    return h('p', { class: 'home__stats' }, parts.join(' · '));
   }
 
   focus() {
@@ -102,6 +112,13 @@ export class MapScreen {
       const got = levels.reduce((a, l) => a + levelRecord(l.id).stars, 0);
       const unlocked = isUnlocked(levels[0].id);
       const path = h('ol', { class: 'map__path' });
+      path.append(
+        h('li', {
+          class: 'map__trail',
+          'aria-hidden': 'true',
+          html: '<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M10 25 H90 C104 25 104 75 90 75 H10" vector-effect="non-scaling-stroke"/></svg>',
+        }),
+      );
       levels.forEach((l, i) => {
         const rec = levelRecord(l.id);
         const open = isUnlocked(l.id);

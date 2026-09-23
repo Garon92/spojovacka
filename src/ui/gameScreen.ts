@@ -175,7 +175,9 @@ export class GameScreen {
     subscribeSettings(() => {
       this.view.refreshColors();
       this.applySound();
+      this.view.reduced = prefersReducedMotion();
     });
+    this.view.reduced = prefersReducedMotion();
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.view.refreshColors());
     this.applySound();
     this.exposeDebug();

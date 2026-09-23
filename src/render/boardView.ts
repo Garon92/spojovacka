@@ -83,7 +83,8 @@ export class BoardView {
   private running = false;
   private lastT = 0;
   private shakeAmp = 0;
-  private reduced = false;
+  /** fewer particles, no shake, shorter animations */
+  reduced = false;
   /** animation speed multiplier (lower = faster) */
   speed = 1;
 
@@ -104,7 +105,6 @@ export class BoardView {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.theme = theme;
-    this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   /* ---------------- setup ---------------- */
