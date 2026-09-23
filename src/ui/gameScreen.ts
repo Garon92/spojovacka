@@ -813,7 +813,7 @@ export class GameScreen {
     recordStats({ wins: 1, tiles: this.state.stats.cleared, specials: this.state.stats.specialsUsed });
     this.reportActivity();
     const isLast = level.id >= LEVELS.length;
-    const results = showResults({
+    const choice = await showResults({
       title: `Úroveň ${level.id} splněna!`,
       subtitle: stars === 3 ? 'Všechny tři hvězdy – paráda!' : stars === 2 ? 'Pro třetí hvězdu zkus víc bodů.' : 'Víc bodů = víc hvězd.',
       score,
@@ -826,15 +826,12 @@ export class GameScreen {
         { label: 'Speciály', value: this.state.stats.specialsUsed },
       ],
       againLabel: isLast ? 'Mapa úrovní' : 'Další úroveň',
+      againIcon: isLast ? UI_ICONS.grid : UI_ICONS.arrowRight,
       actions: [{ label: 'Znovu', value: 'retry', variant: 'secondary', icon: UI_ICONS.restart }],
       menuHref: null,
       menuLabel: 'Mapa',
       container: this.el,
     });
-    // kit shows a "restart" icon on the primary button – here it means "next level"
-    const primaryIcon = results.el.querySelector('[data-primary] svg');
-    if (primaryIcon) primaryIcon.outerHTML = isLast ? UI_ICONS.grid : UI_ICONS.arrowRight;
-    const choice = await results;
     if (!this.active) return;
     if (choice === 'again') this.nav.go(isLast ? '#/mapa' : `#/uroven/${level.id + 1}`);
     else if (choice === 'retry') this.nav.go(`#/uroven/${level.id}`, true);

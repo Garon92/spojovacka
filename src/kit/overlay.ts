@@ -109,6 +109,8 @@ export interface ResultsOptions extends OverlayBaseOptions {
   maxStars?: number;
   stats?: { label: string; value: number | string; icon?: string }[];
   againLabel?: string;
+  /** icon (SVG string) of the primary button; default UI_ICONS.restart — e.g. UI_ICONS.arrowRight for "Další úroveň" */
+  againIcon?: string;
   /** where "Menu" goes; null = just resolve 'menu' (default '/menu/') */
   menuHref?: string | null;
   menuLabel?: string;
@@ -441,7 +443,7 @@ export function showResults(opts: ResultsOptions = {}): OverlayPromise<ResultsCh
       }
       if (opts.stats?.length) panel.append(statsEl(opts.stats));
 
-      const again = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block', 'data-primary': true, html: UI_ICONS.restart });
+      const again = h('button', { type: 'button', class: 'g92-btn g92-btn--xl g92-btn--block', 'data-primary': true, html: opts.againIcon ?? UI_ICONS.restart });
       again.append(opts.againLabel ?? 'Hrát znovu');
       again.addEventListener('click', () => {
         sfx.pop();
